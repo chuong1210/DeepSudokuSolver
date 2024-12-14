@@ -53,41 +53,7 @@ def solveDFS(board, grid_size=9):
         return None
 
 
-def iterative_deepening_search(board, grid_size=9):
-    max_depth = 1
-    while True:
-        if solveDFS(board, grid_size):
-            return board  # Nếu tìm được giải pháp, trả về bảng đã giải
-        max_depth += 1  # Tăng độ sâu và thử lại
 
-def greedy_sudoku_solver(board, grid_size=9):
-    def is_valid(board, row, col, num):
-        # Kiểm tra hàng
-        if num in board[row]:
-            return False
-        # Kiểm tra cột
-        if num in board[:, col]:
-            return False
-        # Kiểm tra khối box
-        box_size = int(grid_size ** 0.5)
-        start_row, start_col = box_size * (row // box_size), box_size * (col // box_size)
-        for i in range(start_row, start_row + box_size):
-            for j in range(start_col, start_col + box_size):
-                if board[i][j] == num:
-                    return False
-        return True
-
-    for row in range(grid_size):
-        for col in range(grid_size):
-            if board[row][col] == 0:  # Nếu ô trống
-                for num in range(1, grid_size + 1):
-                    if is_valid(board, row, col, num):
-                        board[row][col] = num  # Điền số vào ô trống
-                        if greedy_sudoku_solver(board, grid_size):
-                            return True
-                        board[row][col] = 0
-                return False  # Nếu không thể điền vào ô này, trả về False
-    return True  # Nếu không còn ô trống, tức là đã giải được
 
 
 def solveBFS(board, grid_size=9):
@@ -133,6 +99,7 @@ def solveBFS(board, grid_size=9):
 
         for num in range(1, grid_size + 1):
             if valid(current_board, num, (row, col)):  # Kiểm tra tính hợp lệ
+                print(board)
                 new_board = deepcopy(current_board)
                 new_board[row][col] = num  # Điền số vào ô trống
                 queue.append(new_board)
@@ -198,6 +165,7 @@ def solveAStar(board, grid_size=9):
 
             for num in range(1, grid_size+1):  # Thử tất cả các số từ 1 đến 9
                 if is_valid(board, num, (row, col)):  # Kiểm tra số `num` có hợp lệ
+                    print(board)
                     new_board = [row[:] for row in board]  # Tạo bản sao của bảng hiện tại
                     new_board[row][col] = num  # Điền số vào ô trống
                     neighbors.append(new_board)  # Thêm trạng thái mới vào danh sách
@@ -274,6 +242,7 @@ def solveIDS(board, grid_size):
                             if is_valid(board, row, col, num, grid_size):  # Kiểm tra tính hợp lệ
                                 board[row][col] = num
                                 result = dfs(board, depth + 1)  # Gọi đệ quy để điền tiếp
+                                print(board)
                                 if result is not None:
                                     return result  # Nếu tìm thấy kết quả thì trả về
                                 board[row][col] = 0  # Quay lại nếu không tìm thấy
