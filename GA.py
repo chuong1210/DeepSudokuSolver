@@ -34,6 +34,7 @@ class Sudoku:
         if self.population.seed(Nc, self.given) == 1:
             pass
         else:
+            print("sasa")
             return (-1, 1)
 
         # For up to 10000 generations...
@@ -45,8 +46,13 @@ class Sudoku:
                 #best_fitness_population_values = self.population.candidates[0].values
                 for c in range(0, Nc):
                     fitness = self.population.candidates[c].fitness
+                    print(self.population.candidates[c].values)  # In bàn cờ khi tìm thấy lời giải
+                    print(self.population.candidates[c].fitness)  # In bàn cờ khi tìm thấy lời giải
+
+
                     if (fitness == 1):
                         print("Solution found at generation %d!" % generation)
+
                         return (generation, self.population.candidates[c])
 
                     # Find the best fitness and corresponding chromosome
