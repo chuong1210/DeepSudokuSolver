@@ -99,7 +99,8 @@ def solveBFS(board, grid_size=9):
 
         for num in range(1, grid_size + 1):
             if valid(current_board, num, (row, col)):  # Kiểm tra tính hợp lệ
-                print(board)
+                print(current_board)
+
                 new_board = deepcopy(current_board)
                 new_board[row][col] = num  # Điền số vào ô trống
                 queue.append(new_board)
@@ -203,7 +204,7 @@ def solveAStar(board, grid_size=9):
 
 
 
-def solveIDS(board, grid_size):
+def solveIDS(board, grid_size=9):
     # Hàm kiểm tra xem một số có hợp lệ tại vị trí (row, col) trên bảng hay không
     def is_valid(board, row, col, num, grid_size):
         box_size = int(grid_size ** 0.5)  # Tính kích thước của ô vuông con (box)
@@ -259,8 +260,7 @@ def solveIDS(board, grid_size):
             return result  # Nếu tìm thấy lời giải thì trả về
 
     return None  # Nếu không tìm thấy lời giải trong giới hạn độ sâu
-
-def solveGreedy(board, grid_size):
+def solveGreedy(board, grid_size=9):
     """
     Giải Sudoku bằng thuật toán Greedy.
     - Thử điền từng số vào ô trống và kiểm tra tính hợp lệ.
@@ -274,11 +274,12 @@ def solveGreedy(board, grid_size):
         # Kiểm tra trong cùng một hàng
         if num in board[row]:
             return False
-         # Kiểm tra trong cùng một cột
-        # if num in board[:, col]:
 
+        # Kiểm tra trong cùng một cột
         if num in [board[i][col] for i in range(grid_size)]:
             return False
+
+        # Kiểm tra trong cùng một ô vuông
         start_row, start_col = box_size * (row // box_size), box_size * (col // box_size)
         for i in range(start_row, start_row + box_size):
             for j in range(start_col, start_col + box_size):
@@ -292,8 +293,9 @@ def solveGreedy(board, grid_size):
                 for num in range(1, grid_size + 1):  # Duyệt thử các số từ 1 đến grid_size
                     if is_valid(board, row, col, num, grid_size):  # Kiểm tra số có hợp lệ không
                         board[row][col] = num
-                        if solveGreedy(board, grid_size):  # Gọi đệ quy để tiếp tục giải quyết
-                            return True
+                        result = solveGreedy(board, grid_size)  # Gọi đệ quy để tiếp tục giải quyết
+                        if result is not None:  # Nếu có lời giải
+                            return result
                         board[row][col] = 0  # Quay lại nếu không tìm được giải pháp
-                return False  # Nếu không thể điền vào ô này, trả về False
-    return True  # Nếu không còn ô trống, tức là đã giải được
+                return None  # Nếu không thể điền vào ô này, trả về None
+    return board  # Trả về bảng đã giải nếu hoàn thành

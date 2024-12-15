@@ -1,141 +1,138 @@
 import tkinter as tk
-from tkinter import Frame, Label, font, PhotoImage
-from PIL import ImageTk, Image,ImageDraw
-from SudokuHome import run_Home  # Assuming this is your login page module
-import time
-from tkinter import Canvas
-import os
-import tkinter as tk
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
-w = tk.Tk()
+from PIL import Image, ImageTk, ImageDraw
+import time
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
-# Window dimensions and positioning
-width_of_window = 477
-height_of_window = 285
-screen_width = w.winfo_screenwidth()
-screen_height = w.winfo_screenheight()
-x_coordinate = (screen_width / 2) - (width_of_window / 2)
-y_coordinate = (screen_height / 2) - (height_of_window / 2)
-w.geometry(f"{width_of_window}x{height_of_window}+{int(x_coordinate)}+{int(y_coordinate)}")
-w.overrideredirect(1)  # Hide title bar
-
-# New window to open (not used in this example)
-def new_win():
-    q = tk.Tk()
-    q.title('main window')
-    q.mainloop()
-
-# Background frame
-Frame(w, width=487, height=270, bg='#9999FF').place(x=0, y=0)
-
-# Load images
-img_load1 = ImageTk.PhotoImage(Image.open(os.path.join('Repository', 'point2.png')))
-img_load2 = ImageTk.PhotoImage(Image.open(os.path.join('Repository', 'point1.png')))
-
-# Function to create a circular image label
-def create_circular_image_label(image, x, y, bg_color='#9999FF'):
-    # Resize the image to be smaller for the circle
-    image = image.resize((70, 70), Image.LANCZOS) 
-    
-    # Create a circular mask
-    mask = Image.new("L", image.size, 0)
-    draw = ImageDraw.Draw(mask)
-    draw.ellipse((0, 0, image.width, image.height), fill=255)
-
-    # Apply the mask to the image
-    masked_image = Image.new("RGBA", image.size)
-    masked_image.paste(image, (0, 0), mask)
-    masked_image_tk = ImageTk.PhotoImage(masked_image)
-
-    label = Label(w, image=masked_image_tk, bg=bg_color, borderwidth=0)
-    label.image = masked_image_tk
-    label.place(x=x, y=y)
-    return label
-# Function to create a label with border color matching the text
-def create_image_label(image, x, y, bg_color='#9999FF'):
-    canvas = Canvas(w, width=image.width(), height=image.height(), bg=bg_color)
-    canvas.create_image(image.width() // 2, image.height() // 2, image=image)
-    canvas.place(x=x - 10, y=y)
-    return canvas
-
-# Thesis name label with circular image
-name_thesis = Label(w, text='HUIT CHƯƠNG', fg='white', bg='#9999FF')
-name_thesis.configure(font=("Game Of Squids", 26, "bold"))
-name_thesis.place(x=117, y=110)
-
-# Add the circular image next to the label
-profile_image = Image.open('Repository/play_icon.png') # Replace with your image path
-profile_label = create_circular_image_label(profile_image, 210, 20) 
-
-# Loading label
-Loading_lb = Label(w, text='Loading...', fg='white', bg='#9999FF')
-Loading_lb.configure(font=("Time", 14))
-Loading_lb.place(x=370, y=215)
-
-# Animation function
-def animate():
-    # Create labels with border color matching the text
-    l1 = create_image_label(img_load1, 205, 170, bg_color='#9999FF')
-    l2 = create_image_label(img_load2, 225, 170, bg_color='#9999FF')
-    l3 = create_image_label(img_load2, 245, 170, bg_color='#9999FF')
-    l4 = create_image_label(img_load2, 265, 170, bg_color='#9999FF')
-    l5 = create_image_label(img_load2, 285, 170, bg_color='#9999FF')
+class SplashScreen(ttk.Toplevel):
+    def __init__(self):
+        super().__init__()
+        self.style.theme_use('darkly')  # Set the theme using ttkbootstrap
 
 
-    w.update_idletasks()
-    time.sleep(0.5)
 
-    l1 = create_image_label(img_load2, 205, 170, bg_color='#9999FF')
-    l2 = create_image_label(img_load1, 225, 170, bg_color='#9999FF')
-    l3 = create_image_label(img_load2, 245, 170, bg_color='#9999FF')
-    l4 = create_image_label(img_load2, 265, 170, bg_color='#9999FF')
-    l5 = create_image_label(img_load2, 285, 170, bg_color='#9999FF')
+        self.title("Splash Screen")
+        self.geometry("500x350")
+        self.style.configure("TProgressbar", troughcolor='#2a2a2a', background='#808080')
 
-    w.update_idletasks()
-    time.sleep(0.5)
+        self.overrideredirect(True)
+        self.center_window()
+        
+        self.setup_ui()
+        self.after(100, self.animate)
 
-    l1 = create_image_label(img_load2, 205, 170, bg_color='#9999FF')     
-    l2 = create_image_label(img_load2, 225, 170, bg_color='#9999FF')
-    l3 = create_image_label(img_load1, 245, 170, bg_color='#9999FF')
-    l4 = create_image_label(img_load2, 265, 170, bg_color='#9999FF')
-    l5 = create_image_label(img_load2, 285, 170, bg_color='#9999FF')
 
-    w.update_idletasks()
-    time.sleep(0.5)
+    def center_window(self):
+        self.update_idletasks()
+        width = self.winfo_width()
+        height = self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f'{width}x{height}+{x}+{y}')
 
-    l1 = create_image_label(img_load2, 205, 170, bg_color='#9999FF')
-    l2 = create_image_label(img_load2, 225, 170, bg_color='#9999FF')
-    l3 = create_image_label(img_load2, 245, 170, bg_color='#9999FF')
-    l4 = create_image_label(img_load1, 265, 170, bg_color='#9999FF')
-    l5 = create_image_label(img_load2, 285, 170, bg_color='#9999FF')
+    def setup_ui(self):
+        # Main frame
+        self.main_frame = ttk.Frame(self, padding=20)
+        self.main_frame.pack(fill=BOTH, expand=YES)
 
-    w.update_idletasks()
-    time.sleep(0.5)
+        # Load images
+        self.img_load1 = ImageTk.PhotoImage(Image.open(os.path.join('Repository', 'point2.png')))
+        self.img_load2 = ImageTk.PhotoImage(Image.open(os.path.join('Repository', 'point1.png')))
 
-    
-    l1 = create_image_label(img_load2, 205, 170, bg_color='#9999FF')
-    l2 = create_image_label(img_load2, 225, 170, bg_color='#9999FF')
-    l3 = create_image_label(img_load2, 245, 170, bg_color='#9999FF')
-    l4 = create_image_label(img_load2, 265, 170, bg_color='#9999FF')
-    l5 = create_image_label(img_load1, 285, 170, bg_color='#9999FF')
+        # Circular profile image
+        profile_image =Image.open(os.path.join('Repository', 'sudoku.png'))
+        self.profile_label = self.create_circular_image_label(profile_image, 190, 20)
 
-    w.update_idletasks()
-    time.sleep(0.5)
+        # Thesis name label
+        self.name_thesis = ttk.Label(
+            self.main_frame, 
+            text='HUIT CHƯƠNG - THÁI', 
+            font=("Game Of Squids", 23, "bold"),
+            bootstyle="light"
+        )
+        self.name_thesis.pack(pady=(100, 10))
 
-    # Destroy all labels to avoid memory leaks
-    l1.destroy()
-    l2.destroy()
-    l3.destroy()
-    l4.destroy()
-    l5.destroy()
+        # Loading dots frame
+        self.dots_frame = ttk.Frame(self.main_frame)
+        self.dots_frame.pack(pady=15)
 
-    # Open the login page after animation
-    w.destroy()
-    run_Home()
+        # Loading label
+        self.loading_label = ttk.Label(
+            self.main_frame, 
+            text='Loading...', 
+            font=("Helvetica", 10),
+            bootstyle="light"
+        )
+        self.loading_label.pack(side=BOTTOM, anchor=SE, pady=(0, 20))
 
-# Start the animation
-animate()
+        self.progress_bar = ttk.Progressbar(
+            self.main_frame,
+            orient=HORIZONTAL,
+            length=400,
+            mode='determinate',
+            bootstyle="secondary-striped"
+        )
+        self.progress_bar.place(relx=0.5, rely=0.75, anchor=CENTER)
 
-# Keep the window running
-w.mainloop()
+    def create_circular_image_label(self, image, x, y):
+        image = image.resize((80, 80), Image.LANCZOS)
+        mask = Image.new("L", image.size, 0)
+        draw = ImageDraw.Draw(mask)
+        draw.ellipse((0, 0, image.width, image.height), fill=255)
+        
+        masked_image = Image.new("RGBA", image.size)
+        masked_image.paste(image, (0, 0), mask)
+        masked_image_tk = ImageTk.PhotoImage(masked_image)
+        
+        label = ttk.Label(self.main_frame, image=masked_image_tk)
+        label.image = masked_image_tk
+        label.place(x=x, y=y)
+        return label
+
+    def create_dot(self, image):
+        return ttk.Label(self.dots_frame, image=image)
+
+    def animate(self):
+        dots = [self.create_dot(self.img_load2) for _ in range(5)]
+        for dot in dots:
+            dot.pack(side=LEFT, padx=2)
+
+        for i in range(5):
+            dots[i].configure(image=self.img_load1)
+            self.update_idletasks()
+            self.progress_bar['value'] += 20
+
+            time.sleep(0.5)
+            dots[i].configure(image=self.img_load2)
+
+        for dot in dots:
+            dot.destroy()
+
+        self.after(100, self.open_main_window)
+
+    def open_main_window(self):
+        # Cancel all scheduled 'after' events
+        try:
+            for after_id in self.tk.eval('after info').split():
+                self.after_cancel(after_id)
+        except tk.TclError:
+            print("Error cancelling 'after' events: Application may have been destroyed")
+
+        # Ensure the window is still open before destroying
+        try:
+            if self.winfo_exists():
+                self.destroy()
+        except tk.TclError:
+            print("Error destroying window: Application may have already been destroyed")
+            # Ensure run_Home() is called even if there's an error
+
+def runSplash():
+    app = SplashScreen()
+    app.mainloop()
+# if __name__ == "__main__":
+#     app = SplashScreen()
+
+#     app.mainloop()
+

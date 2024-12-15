@@ -470,14 +470,28 @@ class CycleCrossover(object):
         for i in range(0, len(parent_row)):
             if (parent_row[i] == value):
                 return i
+if __name__ == "__main__":
+    # Một ví dụ về lưới Sudoku 9x9
+    sudoku_puzzle = np.array([
+        [5, 3, 0, 0, 7, 0, 0, 0, 0],
+        [6, 0, 0, 1, 9, 5, 0, 0, 0],
+        [0, 9, 8, 0, 0, 0, 0, 6, 0],
+        [8, 0, 0, 0, 6, 0, 0, 0, 3],
+        [4, 0, 0, 8, 0, 3, 0, 0, 1],
+        [7, 0, 0, 0, 2, 0, 0, 0, 6],
+        [0, 6, 0, 0, 0, 0, 2, 8, 0],
+        [0, 0, 0, 4, 1, 9, 0, 0, 5],
+        [0, 0, 0, 0, 8, 0, 0, 7, 9]
+    ])
 
-# The Tournament and CycleCrossover classes can remain largely unchanged
-# Just make sure to replace any hardcoded 9 values with Nd
-
-# Example usage
-sudoku = Sudoku(9)  # For 9x9 grid
-# sudoku = Sudoku(16)  # For 16x16 grid
-# Load your puzzle here
-# sudoku.load(your_puzzle)
-# generation, solution = sudoku.solve()
-
+    # Tạo một đối tượng Sudoku và giải bài toán
+    sudoku_solver = Sudoku(grid_size=9)
+    sudoku_solver.load(sudoku_puzzle)
+    
+    # Gọi hàm giải và in kết quả
+    generation, solution = sudoku_solver.solve()
+    if generation >= 0:
+        print("\nSolved Sudoku:")
+        print(solution.values)
+    else:
+        print("No solution found.")
