@@ -9,7 +9,7 @@ import time
 import subprocess
 from SudokuApp import run_app
 from SudokuLoadingSplash import SplashScreen
-
+from ttkbootstrap.tooltip import ToolTip
 class SudokuHome(ttk.Window):
     def __init__(self):
         super().__init__(themename="darkly")
@@ -96,7 +96,8 @@ class SudokuHome(ttk.Window):
         self.start_main_game()
 
     def start_main_game(self):
-        subprocess.Popen(["python", "SudokuApp.py"])
+        #subprocess.Popen(["python", "SudokuApp.py"])
+        run_app()
         self.destroy()  # Close the home screen
 
 

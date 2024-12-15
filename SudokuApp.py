@@ -8,7 +8,6 @@ from PIL import Image, ImageTk
 import random
 import time
 from tkinter import filedialog, messagebox
-import GA as gss
 
 from sudokuSolverDiversity import solveAStar, solveBFS, solveDFS,solveIDS,solveGreedy
 from ImageProcess import extrapolate_sudoku
@@ -16,10 +15,12 @@ import math
 import tkinter.simpledialog as simpledialog
 import threading  # Để chạy camera trong một luồng riêng
 from DiTruyen import solveGA   # Import the genetic solver
-
-class SudokuApp(ttk.Window):
+from ttkbootstrap.tooltip import ToolTip
+class SudokuApp(ttk.Toplevel):
     def __init__(self, file):
-        super().__init__(themename="darkly")
+        super().__init__()
+        self.style.theme_use('darkly')  # Set the theme using ttkbootstrap
+
         self.title("Sudoku Solver")
         self.geometry("1000x600")
 
@@ -152,7 +153,7 @@ class SudokuApp(ttk.Window):
                                         values=["Dễ", "Trung bình", "Khó", "Chuyên gia"])
         difficulty_combo.pack(side=LEFT, padx=(0, 10))
 
-        ttk.Button(control_frame, text="Trò chơi mới", command=self.new_game).pack(side=LEFT)
+        ttk.Button(control_frame, text="Trò chơi mới", command=self.new_game,cursor="hand2").pack(side=LEFT)
 
         algorithm_frame = ttk.Frame(self.right_frame)
         algorithm_frame.pack(fill=X, expand=YES, pady=10)
@@ -160,7 +161,7 @@ class SudokuApp(ttk.Window):
         ttk.Label(algorithm_frame, text="Thuật toán:").pack(side=LEFT)
         self.algorithm_var = tk.StringVar(value="A*")
         algorithm_combo = ttk.Combobox(algorithm_frame, textvariable=self.algorithm_var, 
-                                       values=["A*", "DFS", "BFS", "GA","Greedy"])
+                                       values=["A*", "DFS", "BFS", "GA","Greedy","IDS"])
         algorithm_combo.pack(side=LEFT, padx=(0, 10))
 
         self.solve_button = ttk.Button(algorithm_frame, text="Giải", command=self.solve,cursor="hand2") # Updated line
@@ -206,10 +207,14 @@ class SudokuApp(ttk.Window):
         # Nút Mở Camera
         open_camera_button = ttk.Button(undo_frame, text="Mở Camera",image=self.open_icon, command=self.open_camera, width=15,cursor="hand2")
         open_camera_button.pack(side=LEFT, padx=5)
+        ToolTip(open_camera_button, text="Mở Camera") # Thêm tooltip
+
 
         # Nút Đóng Camera
         close_camera_button = ttk.Button(undo_frame, text="Đóng Camera", image=self.close_icon,command=self.close_camera, width=15,cursor="hand2")
         close_camera_button.pack(side=LEFT, padx=5)
+        ToolTip(close_camera_button, text="Tắt Camera") # Thêm tooltip
+
 
 
 
@@ -217,6 +222,7 @@ class SudokuApp(ttk.Window):
         self.hint_icon = ImageTk.PhotoImage(hint_icon_image)
         hint_button = ttk.Button(undo_frame, text="Gợi ý", image=self.hint_icon, compound=LEFT, command=self.toggle_hint_mode, width=15, cursor="hand2")
         hint_button.pack(side=LEFT, padx=5)
+        ToolTip(hint_button, text="Bật/tắt chế độ gợi ý") # Thêm tooltip
       
 
         solution_frame = ttk.Frame(self.right_frame)
@@ -299,6 +305,8 @@ class SudokuApp(ttk.Window):
         # Đảm bảo câu đố được chuyển đổi thành danh sách các số nguyên  
         self.solution_grid = None
         self.history = []
+        self.hint_mode = False  # Thêm biến để kiểm tra chế độ gợi ý
+        self.hinted_cells = []  # Thêm danh sách các ô đã được gợi ý
         self.update_grid_display()
         
         # Đặt lại và bắt đầu hẹn giờ từ đầu
@@ -317,6 +325,8 @@ class SudokuApp(ttk.Window):
         self.update_timer()
         self.solution_displayed = False # Added line
         self.update_solve_button_text() # Added line
+
+
 
 
 
@@ -355,7 +365,7 @@ class SudokuApp(ttk.Window):
                 if self.grid_size == 9:
                     self.solution_grid = solveDFS(np.copy(self.original_grid))
                 else:
-                    self.solution_grid = solveIDS(np.copy(self.original_grid),16)
+                    self.solution_grid = solveDFS(np.copy(self.original_grid),16)
 
             elif algorithm == "BFS":
                 if self.grid_size == 9:
@@ -376,6 +386,11 @@ class SudokuApp(ttk.Window):
                     self.solution_grid = solveGreedy(np.copy(self.original_grid))
                 else:
                     self.solution_grid = solveGreedy(np.copy(self.original_grid),16)
+            else:
+                if self.grid_size == 9:
+                    self.solution_grid = solveIDS(np.copy(self.original_grid))
+                else:
+                    self.solution_grid = solveIDS(np.copy(self.original_grid),16)
             
 
             if self.solution_grid is not None:
@@ -491,6 +506,9 @@ class SudokuApp(ttk.Window):
             self.solution_grid = solveBFS(np.copy(sudoku_grid))
         elif algorithm == "A*":
             self.solution_grid = solveAStar(np.copy(sudoku_grid))
+        else:
+            self.solution_grid = solveIDS(np.copy(self.original_grid))
+               
 
         if self.solution_grid is not None:
             # Vẽ đáp án lên khung hình
@@ -566,7 +584,7 @@ class SudokuApp(ttk.Window):
                 if self.grid_size == 9:
                     self.solution_grid = solveDFS(np.copy(self.original_grid))
                 else:
-                    self.solution_grid = solveIDS(np.copy(self.original_grid),16)
+                    self.solution_grid = solveDFS(np.copy(self.original_grid),16)
 
             elif algorithm == "BFS":
                 if self.grid_size == 9:
@@ -587,17 +605,22 @@ class SudokuApp(ttk.Window):
                     self.solution_grid = solveGreedy(np.copy(self.original_grid))
                 else:
                     self.solution_grid = solveGreedy(np.copy(self.original_grid),16)
+            else:
+                if self.grid_size == 9:
+                    self.solution_grid = solveIDS(np.copy(self.original_grid))
+                else:
+                    self.solution_grid = solveIDS(np.copy(self.original_grid),16)
                     
 
 
-                if self.solution_grid is not None:
+            if self.solution_grid is not None:
                     self.info_label.config(text="Đang hiển thị đáp án...")
                     # self.display_solution_gradually()
                     # self.solution_displayed = True
 
-                else:
-                    self.info_label.config(text="Không tìm thấy đáp án.")
             else:
+                    self.info_label.config(text="Không tìm thấy đáp án.")
+        else:
                 self.hide_solution()
                 self.solution_displayed = False
         
@@ -640,6 +663,7 @@ class SudokuApp(ttk.Window):
                     self.update_cell(row, col, 0)
         self.history = []
         self.solution_displayed=  False
+        self.update_solve_button_text()
     def hide_solution(self): # Added method
         for row in range(self.grid_size):
             for col in range(self.grid_size):
@@ -658,7 +682,7 @@ class SudokuApp(ttk.Window):
 def run_app():
     app = SudokuApp("Crossover.json")
     app.mainloop()
-if __name__ == "__main__":
-    app = SudokuApp("Crossover.json")
-    app.mainloop()
+# if __name__ == "__main__":
+#     app = SudokuApp("Crossover.json")
+#     app.mainloop()
 

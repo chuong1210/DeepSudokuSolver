@@ -12,6 +12,8 @@ def solveDFS(board, grid_size=9):
     Giải Sudoku bằng thuật toán Depth-First Search (DFS).
     Trả về bảng Sudoku đã được giải hoặc None nếu không có lời giải.
     """
+    print("DFS SOLVE")
+
     def is_valid(board, row, col, num):
         # Kiểm tra hàng
         for i in range(grid_size):
@@ -57,6 +59,8 @@ def solveDFS(board, grid_size=9):
 
 
 def solveBFS(board, grid_size=9):
+    print("BFS SOLVE")
+
     def findEmpty(board):
         for i in range(grid_size):
             for j in range(grid_size):
@@ -113,6 +117,8 @@ def solveAStar(board, grid_size=9):
         Giải câu đố Sudoku bằng giải thuật A*.
         Trả về bảng Sudoku đã được giải hoặc `None` nếu không có lời giải.
         """
+
+        print("A* SOLVE")
 
         # Đảm bảo bảng đầu vào là danh sách Python (không phải numpy array)
         if isinstance(board, np.ndarray):
@@ -204,62 +210,7 @@ def solveAStar(board, grid_size=9):
 
 
 
-def solveIDS(board, grid_size=9):
-    # Hàm kiểm tra xem một số có hợp lệ tại vị trí (row, col) trên bảng hay không
-    def is_valid(board, row, col, num, grid_size):
-        box_size = int(grid_size ** 0.5)  # Tính kích thước của ô vuông con (box)
 
-        # Kiểm tra hàng (row)
-        for i in range(grid_size):
-            if board[row][i] == num:
-                return False
-
-        # Kiểm tra cột (col)
-        for i in range(grid_size):
-            if board[i][col] == num:
-                return False
-
-        # Kiểm tra vùng box (ô vuông con)
-        box_row = row // box_size * box_size
-        box_col = col // box_size * box_size
-        for i in range(box_row, box_row + box_size):
-            for j in range(box_col, box_col + box_size):
-                if board[i][j] == num:
-                    return False
-        return True
-
-    # Hàm DFS với giới hạn độ sâu
-    def dfs_depth_limit(board, depth_limit, grid_size):
-        # Hàm DFS đệ quy, nhận vào độ sâu hiện tại
-        def dfs(board, depth):
-            if depth > depth_limit:
-                return None  # Nếu vượt quá độ sâu giới hạn thì trả về None
-
-            # Kiểm tra xem bảng đã đầy chưa (tức là tất cả các ô đã được điền số)
-            for row in range(grid_size):
-                for col in range(grid_size):
-                    if board[row][col] == 0:  # Nếu tìm thấy ô trống
-                        for num in range(1, grid_size + 1):  # Thử các số từ 1 đến grid_size
-                            if is_valid(board, row, col, num, grid_size):  # Kiểm tra tính hợp lệ
-                                board[row][col] = num
-                                result = dfs(board, depth + 1)  # Gọi đệ quy để điền tiếp
-                                print(board)
-                                if result is not None:
-                                    return result  # Nếu tìm thấy kết quả thì trả về
-                                board[row][col] = 0  # Quay lại nếu không tìm thấy
-                        return None  # Nếu không có số nào hợp lệ thì quay lại
-            return board  # Nếu không còn ô trống, tức là đã giải xong
-
-        return dfs(board, 0)
-
-    # Thực hiện IDS: Bắt đầu từ độ sâu 1 và tăng dần độ sâu
-    for depth_limit in range(1, 100):  # Có thể điều chỉnh giới hạn độ sâu
-        board_copy = [row[:] for row in board]  # Sao chép bảng để không làm thay đổi bảng gốc
-        result = dfs_depth_limit(board_copy, depth_limit, grid_size)  # Giải bài toán với độ sâu hiện tại
-        if result is not None:
-            return result  # Nếu tìm thấy lời giải thì trả về
-
-    return None  # Nếu không tìm thấy lời giải trong giới hạn độ sâu
 def solveGreedy(board, grid_size=9):
     """
     Giải Sudoku bằng thuật toán Greedy.
@@ -268,34 +219,121 @@ def solveGreedy(board, grid_size=9):
     - Nếu không thể điền được số hợp lệ, quay lại ô trước đó và thử số khác.
     - Trả về bảng đã giải hoặc None nếu không có lời giải.
     """
-    def is_valid(board, row, col, num, grid_size):
-        box_size = int(grid_size ** 0.5)  # Tính kích thước của ô vuông con (box)
+    print("GREEDY SOLVE")
+    box_size = int(grid_size**0.5)
 
-        # Kiểm tra trong cùng một hàng
+    def is_valid(row, col, num):
+        """Kiểm tra xem số `num` có hợp lệ tại ô (row, col) hay không."""
+        # Kiểm tra hàng
+        for x in range(grid_size):
+            if board[row][x] == num:
+                return False
+
+        # Kiểm tra cột
+        for x in range(grid_size):
+            if board[x][col] == num:
+                return False
+
+        # Kiểm tra ô vuông con
+        start_row = row - row % box_size
+        start_col = col - col % box_size
+        for i in range(box_size):
+            for j in range(box_size):
+                if board[i + start_row][j + start_col] == num:
+                    return False
+
+        return True
+
+
+    def find_empty_location(l):
+        """Tìm ô trống tiếp theo."""
+        for row in range(grid_size):
+            for col in range(grid_size):
+                if board[row][col] == 0:
+                    l[0] = row
+                    l[1] = col
+                    return True
+        return False
+
+    def solve():
+        """Hàm đệ quy để giải Sudoku."""
+        l = [0, 0]
+
+        if not find_empty_location(l):
+            return True  # Không còn ô trống, đã giải xong
+
+        row = l[0]
+        col = l[1]
+
+        for num in range(1, grid_size + 1):  # Thử các số từ 1 đến grid_size
+            if is_valid(row, col, num):
+                board[row][col] = num
+
+                if solve():
+                    return True
+
+                board[row][col] = 0  # Quay lui nếu không tìm thấy lời giải
+
+        return False
+
+    if solve():
+        return board
+    else:
+        return None
+
+
+# Hàm IDS giải Sudoku
+def solveIDS(board, size=9):
+    print("IDS SOLVE")
+    # Hàm tìm ô trống đầu tiên
+    def find_empty(board, size):
+        for row in range(size):
+            for col in range(size):
+                if board[row][col] == 0:
+                    return row, col
+        return None
+    # Hàm kiểm tra xem có thể điền số num vào vị trí (row, col) hay không
+    def is_valid(board, row, col, num, size):
+        # Kiểm tra trong hàng
         if num in board[row]:
             return False
 
-        # Kiểm tra trong cùng một cột
-        if num in [board[i][col] for i in range(grid_size)]:
+        # Kiểm tra trong cột
+        if num in board[:, col]:
             return False
 
-        # Kiểm tra trong cùng một ô vuông
+        # Kiểm tra trong khối nhỏ (3x3 cho 9x9 và 4x4 cho 16x16)
+        box_size = int(size ** 0.5)
         start_row, start_col = box_size * (row // box_size), box_size * (col // box_size)
-        for i in range(start_row, start_row + box_size):
-            for j in range(start_col, start_col + box_size):
-                if board[i][j] == num:
-                    return False
+        if num in board[start_row:start_row + box_size, start_col:start_col + box_size]:
+            return False
+
         return True
 
-    for row in range(grid_size):
-        for col in range(grid_size):
-            if board[row][col] == 0:  # Nếu ô trống
-                for num in range(1, grid_size + 1):  # Duyệt thử các số từ 1 đến grid_size
-                    if is_valid(board, row, col, num, grid_size):  # Kiểm tra số có hợp lệ không
-                        board[row][col] = num
-                        result = solveGreedy(board, grid_size)  # Gọi đệ quy để tiếp tục giải quyết
-                        if result is not None:  # Nếu có lời giải
-                            return result
-                        board[row][col] = 0  # Quay lại nếu không tìm được giải pháp
-                return None  # Nếu không thể điền vào ô này, trả về None
-    return board  # Trả về bảng đã giải nếu hoàn thành
+
+
+
+    # Hàm tìm kiếm theo chiều sâu với giới hạn độ sâu (DLS)
+    def depth_limited_search(board, size, limit):
+        empty = find_empty(board, size)
+        if not empty:
+            return True  # Không còn ô trống, Sudoku đã được giải
+
+        if limit <= 0:
+            return False  # Vượt quá giới hạn độ sâu
+
+        row, col = empty
+
+        for num in range(1, size + 1):
+            if is_valid(board, row, col, num, size):
+                board[row][col] = num
+                if depth_limited_search(board, size, limit - 1):
+                    return True
+                board[row][col] = 0  # Quay lui nếu không giải được
+
+        return None
+    depth_limit = 1
+    while True:
+        if depth_limited_search(board, size, depth_limit):
+            return board
+        depth_limit += 1
