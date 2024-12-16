@@ -13,6 +13,7 @@ def extrapolate_sudoku(sudoku_image, model_name):
     # Đọc hình ảnh Sudoku từ file
     image = cv2.imread(sudoku_image, 0)  # Đọc hình ảnh dưới dạng ảnh xám (grayscale)
 
+
     # Thay đổi kích thước hình ảnh để phù hợp hơn
     img_height = image.shape[0]
     img_width = image.shape[1]
@@ -57,6 +58,7 @@ def extrapolate_sudoku(sudoku_image, model_name):
         return empty_sudoku
 
     largest_rect_coord = largest_rect_coord.reshape(4,2)
+
 
     # Sắp xếp lại các tọa độ của đường viền
     sum_coord = largest_rect_coord.sum(1)
@@ -178,4 +180,86 @@ def extrapolate_sudoku(sudoku_image, model_name):
             sudoku_grid[i][j] = cell_value
 
 
-    return sudoku_grid
+    return sudoku_grid, largest_rect_coord, transf, (maxWidth, maxHeight)
+
+def resize_image(image, max_width=800, max_height=800):
+    '''Hàm thu nhỏ ảnh về kích thước tối đa mà vẫn giữ tỉ lệ khung hình'''
+    height, width = image.shape[:2]
+    scale = min(max_width / width, max_height / height)
+    new_width = int(width * scale)
+    new_height = int(height * scale)
+    return cv2.resize(image, (new_width, new_height))
+
+def displayImageSolution(image_path, solution, original_grid,largest_rect_coord):
+    # Đọc ảnh gốc
+    image = cv2.imread(image_path)
+
+    
+    
+
+    # Thay đổi kích thước hình ảnh để phù hợp hơn
+    img_height = image.shape[0]
+    img_width = image.shape[1]
+
+    if img_height > img_width:
+        image = cv2.resize(image, (800, 1000))
+    elif img_height < img_width:
+        image = cv2.resize(image, (1000, 800))
+    else:
+        image = cv2.resize(image, (800, 800))
+    # Trích xuất Sudoku grid và tọa độ
+    
+    if largest_rect_coord is None or len(largest_rect_coord) == 0:
+        return image  # Trả về ảnh gốc nếu không tìm thấy lưới Sudoku
+    
+    # Sắp xếp tọa độ
+    largest_rect_coord = largest_rect_coord.reshape(4,2)
+    sum_coord = largest_rect_coord.sum(1)
+    diff_coord = np.diff(largest_rect_coord, axis=1)
+    
+    pt_A = largest_rect_coord[np.argmin(sum_coord)]  # Điểm trên cùng bên trái
+    pt_B = largest_rect_coord[np.argmax(diff_coord)] # Điểm trên cùng bên phải
+    pt_C = largest_rect_coord[np.argmax(sum_coord)]  # Điểm dưới cùng bên phải
+    pt_D = largest_rect_coord[np.argmin(diff_coord)] # Điểm dưới cùng bên trái
+    
+    # Tính kích thước của lưới Sudoku
+    width_AD = np.sqrt(((pt_A[0] - pt_D[0]) ** 2) + ((pt_A[1] - pt_D[1]) ** 2))
+    width_BC = np.sqrt(((pt_B[0] - pt_C[0]) ** 2) + ((pt_B[1] - pt_C[1]) ** 2))
+    maxWidth = max(int(width_AD), int(width_BC))
+    
+    height_AB = np.sqrt(((pt_A[0] - pt_B[0]) ** 2) + ((pt_A[1] - pt_B[1]) ** 2))
+    height_CD = np.sqrt(((pt_C[0] - pt_D[0]) ** 2) + ((pt_C[1] - pt_D[1]) ** 2))
+    maxHeight = max(int(height_AB), int(height_CD))
+    
+    # Vẽ đường viền xanh quanh lưới Sudoku
+    cv2.polylines(image, [largest_rect_coord], True, (0, 255, 0), 3)
+    
+    # Tính toán kích thước của mỗi ô
+    cell_width = maxWidth / 9
+    cell_height = maxHeight / 9
+    
+    # Vẽ số lên ảnh
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = min(cell_width, cell_height) / 30.0  # Điều chỉnh kích thước font
+    font_thickness = 2
+    font_color = (0, 0, 255)  # Màu đỏ
+    
+    for i in range(9):
+        for j in range(9):
+            if original_grid[i][j] == 0:  # Chỉ vẽ số vào ô trống
+                number = solution[i][j]
+                if number != 0:
+                    # Tính toán vị trí để vẽ số
+                    x = int(pt_A[0] + j * cell_width + cell_width / 2)
+                    y = int(pt_A[1] + i * cell_height + cell_height / 2)
+                    
+                    # Lấy kích thước của text
+                    (text_width, text_height), _ = cv2.getTextSize(str(number), font, font_scale, font_thickness)
+                    
+                    # Điều chỉnh vị trí để text nằm giữa ô
+                    text_x = int(x - text_width / 2)
+                    text_y = int(y + text_height / 2)
+                    
+                    cv2.putText(image, str(number), (text_x, text_y), font, font_scale, font_color, font_thickness)
+    
+    return image
