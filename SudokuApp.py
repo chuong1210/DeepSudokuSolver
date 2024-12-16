@@ -33,6 +33,10 @@ class SudokuApp(ttk.Toplevel):
         self.solution_check=False
         self.hint_mode = False  # Thêm biến để kiểm tra chế độ gợi ý
         self.hinted_cells = []  # Thêm danh sách các ô đã được gợi ý
+
+        self.camera_running = False
+        self.camera_index = 0
+        self.max_retries = 3
         self.load_db(file)
         self.setup_ui()
     def load_db(self, file):
@@ -470,41 +474,57 @@ class SudokuApp(ttk.Toplevel):
                 messagebox.showinfo("Thử lại", "Vui lòng tải lên một hình ảnh khác.")
 
 
-
     def open_camera(self):
-        self.cap = cv2.VideoCapture(0)  # Mở camera
+        for i in range(self.max_retries):
+            self.cap = cv2.VideoCapture(self.camera_index)
+            if self.cap.isOpened():
+                ret, frame = self.cap.read()
+                if ret:
+                    break
+            self.cap.release()
+            self.camera_index += 1
+    
         if not self.cap.isOpened():
-            messagebox.showerror("Lỗi", "Không thể mở camera.")
+            messagebox.showerror("Lỗi", f"Không thể mở camera sau {self.max_retries} lần thử.")
             return
 
         self.camera_window = tk.Toplevel(self)
         self.camera_window.title("Camera Real-Time Sudoku")
+        self.camera_window.geometry("800x600")
 
-        self.camera_label = ttk.Label(self.camera_window)
-        self.camera_label.pack()
+        self.camera_frame = ttk.Frame(self.camera_window)
+        self.camera_frame.pack(fill=BOTH, expand=YES)
+
+        self.camera_label = ttk.Label(self.camera_frame)
+        self.camera_label.pack(fill=BOTH, expand=YES)
 
         self.camera_running = True
         threading.Thread(target=self.update_camera_feed, daemon=True).start()
+
     def update_camera_feed(self):
         while self.camera_running:
             ret, frame = self.cap.read()
-            if ret:
-                sudoku_grid, processed_frame, largest_rect_coord = self.process_sudoku_frame(frame)
+            if not ret:
+                messagebox.showerror("Lỗi", "Không thể đọc khung hình từ camera.")
+                self.close_camera()
+                break
 
-                if sudoku_grid is not None:
-                    self.original_grid = sudoku_grid
-                    self.editable_grid = np.copy(self.original_grid)
-                    self.update_grid_display()
-                    processed_frame = self.solve_and_draw_solution(processed_frame, sudoku_grid, largest_rect_coord)
-                else:
-                    processed_frame = frame
+            sudoku_grid, processed_frame, largest_rect_coord = self.process_sudoku_frame(frame)
 
-                frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
-                frame_rgb = cv2.resize(frame_rgb, (800, 600))
-                img = Image.fromarray(frame_rgb)
-                img_tk = ImageTk.PhotoImage(image=img)
-                self.camera_label.imgtk = img_tk
-                self.camera_label.configure(image=img_tk)
+            if sudoku_grid is not None:
+                self.original_grid = sudoku_grid
+                self.editable_grid = np.copy(self.original_grid)
+                self.update_grid_display()
+                processed_frame = self.solve_and_draw_solution(processed_frame, sudoku_grid, largest_rect_coord)
+            else:
+                processed_frame = frame
+
+            frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
+            frame_rgb = cv2.resize(frame_rgb, (800, 600))
+            img = Image.fromarray(frame_rgb)
+            img_tk = ImageTk.PhotoImage(image=img)
+            self.camera_label.imgtk = img_tk
+            self.camera_label.configure(image=img_tk)
 
             self.camera_window.update_idletasks()
             self.camera_window.update()
