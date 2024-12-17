@@ -337,3 +337,38 @@ def solveIDS(board, size=9):
         if depth_limited_search(board, size, depth_limit):
             return board
         depth_limit += 1
+
+def is_valid_sudoku(grid):
+    # Kiểm tra nếu lưới Sudoku chỉ chứa toàn số 0
+    if all(cell == 0 for row in grid for cell in row):
+        return False
+
+    # Kiểm tra từng hàng
+    for row in grid:
+        if not is_valid_group(row):
+            return False
+
+    # Kiểm tra từng cột
+    for col in zip(*grid):
+        if not is_valid_group(col):
+            return False
+
+    # Kiểm tra từng ô vuông 3x3
+    for i in range(0, 9, 3):
+        for j in range(0, 9, 3):
+            block = [grid[x][y] for x in range(i, i + 3) for y in range(j, j + 3)]
+            if not is_valid_group(block):
+                return False
+
+    return True
+
+def is_valid_group(group):
+    # Loại bỏ các số 0 (ô trống) và kiểm tra trùng lặp
+    nums = [num for num in group if num != 0]
+    return len(nums) == len(set(nums))
+def allPositionsFilled(matrix):
+    for i in range(9):
+        for j in range(9):
+            if matrix[i][j] == 0:
+                return False
+    return True

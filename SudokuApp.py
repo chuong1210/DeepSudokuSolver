@@ -3,19 +3,25 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 import json
 import numpy as np
-import cv2
+import cv2 
+
 from PIL import Image, ImageTk
 import random
 import time
 from tkinter import filedialog, messagebox
 
-from sudokuSolverDiversity import solveAStar, solveBFS, solveDFS,solveIDS,solveGreedy
-from ImageProcess import extrapolate_sudoku,displayImageSolution,resize_image
+from sudokuSolverDiversity import solveAStar, solveBFS, solveDFS,solveIDS,solveGreedy,is_valid_sudoku
+from ImageProcess import extrapolate_sudoku,displayImageSolution,resize_image,extrapolate_sudoku_myself,is_sudoku_present,display_sudoku_on_frame
+# from imageProcessing import extrapolate_sudoku,displayImageSolution,resize_image,is_sudoku_present,display_sudoku_on_frame
+
 import math
 import tkinter.simpledialog as simpledialog
 import threading  # Để chạy camera trong một luồng riêng
 from DiTruyen import solveGA   # Import the genetic solver
 from ttkbootstrap.tooltip import ToolTip
+import requests
+from io import BytesIO
+
 class SudokuApp(ttk.Toplevel):
     def __init__(self, file):
         super().__init__()
@@ -37,6 +43,8 @@ class SudokuApp(ttk.Toplevel):
         self.camera_running = False
         self.camera_index = 0
         self.max_retries = 3
+        self.last_extract_time = time.time()
+        self.extract_interval = 5  # Đặt kho
         self.load_db(file)
         self.setup_ui()
     def load_db(self, file):
@@ -225,10 +233,9 @@ class SudokuApp(ttk.Toplevel):
   
 
         # Nút Mở Camera
-        open_camera_button = ttk.Button(undo_frame, text="Mở Camera",image=self.open_icon, command=self.open_camera, width=20,cursor="hand2")
-        open_camera_button.pack(side=LEFT, padx=5)
-        ToolTip(open_camera_button, text="Mở Camera") # Thêm tooltip
-
+        self.open_camera_button = ttk.Button(undo_frame, text="Open Camera", image=self.open_icon, command=self.show_camera_menu, width=20, cursor="hand2")
+        self.open_camera_button.pack(side=LEFT, padx=5)
+        ToolTip(self.open_camera_button, text="Open Camera")
 
         # Nút Đóng Camera
         close_camera_button = ttk.Button(undo_frame, text="Đóng Camera", image=self.close_icon,command=self.close_camera, width=20,cursor="hand2")
@@ -447,9 +454,11 @@ class SudokuApp(ttk.Toplevel):
     def upload_image(self):
         # Chọn tệp hình ảnh
         file_path = filedialog.askopenfilename(filetypes=[("Tệp hình ảnh", "*.jpg;*.png;*.gif")])
+        image = cv2.imread(file_path)
+
         if file_path:
             # Giải Sudoku từ ảnh
-            sudoku_grid, largest_rect_coord, transform_matrix, warp_size = extrapolate_sudoku(file_path, "models/model_sudoku_mnist.keras")
+            sudoku_grid, largest_rect_coord, transform_matrix, warp_size = extrapolate_sudoku(image, "models/model_sudoku_mnist.keras")
 
             self.original_grid = np.array(sudoku_grid)
             self.editable_grid = np.copy(self.original_grid)
@@ -457,13 +466,14 @@ class SudokuApp(ttk.Toplevel):
             self.history = []
             self.update_grid_display()
 
+
             # Xác nhận câu đố Sudoku
             if messagebox.askyesno("Xác nhận", "Đây có phải là câu đố Sudoku chính xác không?"):
                 self.solve()
                 # Hiển thị ảnh với lời giải
 
 
-                result_image = displayImageSolution(file_path, self.solution_grid, self.original_grid,largest_rect_coord)
+                result_image = displayImageSolution(image, self.solution_grid, self.original_grid,largest_rect_coord)
 
                 result_image = resize_image(result_image)  # Resize the image if it's too large
 
@@ -473,103 +483,145 @@ class SudokuApp(ttk.Toplevel):
             else:
                 messagebox.showinfo("Thử lại", "Vui lòng tải lên một hình ảnh khác.")
 
-
-    def open_camera(self):
-        for i in range(self.max_retries):
-            self.cap = cv2.VideoCapture(self.camera_index)
-            if self.cap.isOpened():
-                ret, frame = self.cap.read()
-                if ret:
-                    break
-            self.cap.release()
-            self.camera_index += 1
-    
-        if not self.cap.isOpened():
-            messagebox.showerror("Lỗi", f"Không thể mở camera sau {self.max_retries} lần thử.")
+    def show_camera_menu(self):
+        camera_menu = tk.Menu(self, tearoff=0)
+        camera_menu.add_command(label="Open Webcam", command=self.open_webcam)
+        camera_menu.add_command(label="Open Phone Camera", command=self.open_phone_camera)
+        
+        # Get the position of the "Open Camera" button
+        button_x = self.open_camera_button.winfo_rootx()
+        button_y = self.open_camera_button.winfo_rooty() + self.open_camera_button.winfo_height()
+        
+        # Display the menu at the button's position
+        camera_menu.tk_popup(button_x, button_y)
+    def start_camera_feed(self, cap):
+        if not cap.isOpened():
+            messagebox.showerror("Lỗi", f"Không thể kết nối với camera:")
             return
 
         self.camera_window = tk.Toplevel(self)
-        self.camera_window.title("Camera Real-Time Sudoku")
+        self.camera_window.title("Real-Time Sudoku Camera")
         self.camera_window.geometry("800x600")
 
         self.camera_frame = ttk.Frame(self.camera_window)
-        self.camera_frame.pack(fill=BOTH, expand=YES)
+        self.camera_frame.pack(fill=tk.BOTH, expand=tk.YES)
 
         self.camera_label = ttk.Label(self.camera_frame)
-        self.camera_label.pack(fill=BOTH, expand=YES)
+        self.camera_label.pack(fill=tk.BOTH, expand=tk.YES)
 
         self.camera_running = True
-        threading.Thread(target=self.update_camera_feed, daemon=True).start()
+        threading.Thread(target=self.update_camera_feed_myself, args=(cap,), daemon=True).start()
 
-    def update_camera_feed(self):
+
+    def open_webcam(self):
+        # Existing webcam opening logic
+        cap = cv2.VideoCapture(0)
+        self.start_camera_feed(cap)
+
+    def open_phone_camera(self):
+        # Phone camera opening logic
+        ip_camera_url = "http://192.168.1.4:8080/video"  # Update with your phone's IP camera URL
+        cap = cv2.VideoCapture(ip_camera_url)
+        self.start_camera_feed(cap)
+
+
+
+
+    def update_camera_feed_myself(self, cap):
+        sudoku_detected = False  # Cờ để kiểm tra trạng thái Sudoku
+        largest_rect_coord = None  # Lưu trữ tọa độ của vùng Sudoku
+        self.previous_grid = None  # Lưu trữ lưới Sudoku trước đó để so sánh
+
         while self.camera_running:
-            ret, frame = self.cap.read()
+            ret, frame = cap.read()
             if not ret:
                 messagebox.showerror("Lỗi", "Không thể đọc khung hình từ camera.")
                 self.close_camera()
                 break
 
-            sudoku_grid, processed_frame, largest_rect_coord = self.process_sudoku_frame(frame)
+            # Thoát vòng lặp khi nhấn phím 'q'
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
-            if sudoku_grid is not None:
-                self.original_grid = sudoku_grid
-                self.editable_grid = np.copy(self.original_grid)
-                self.update_grid_display()
-                processed_frame = self.solve_and_draw_solution(processed_frame, sudoku_grid, largest_rect_coord)
+            # Kiểm tra xem có Sudoku trong khung hình không
+            if is_sudoku_present(frame):
+                sudoku_detected = True
+                if sudoku_detected:
+                    try:
+                        largest_rect_coord, frame_with_sudoku, sudoku_grid, inv_transf, maxWidth, maxHeight = display_sudoku_on_frame(frame, "models/model_sudoku_mnist.keras")
+                        sudoku_detected = True
+                        frame = frame_with_sudoku
+                        print(inv_transf)
+
+                        # Tô màu và vẽ viền vùng Sudoku
+                        if largest_rect_coord is not None and len(largest_rect_coord) == 4:
+                            cv2.drawContours(frame, [largest_rect_coord], -1, (0, 255, 0), -1)  # Tô màu xanh lá
+                            cv2.drawContours(frame, [largest_rect_coord], -1, (0, 0, 255), 3)  # Viền đỏ
+
+                        # Kiểm tra và giải Sudoku chỉ khi lưới thay đổi
+                        if sudoku_grid is not None and (self.previous_grid is None or not np.array_equal(sudoku_grid, self.previous_grid)) and is_valid_sudoku(sudoku_grid)==True:
+                            self.original_grid = sudoku_grid
+                            self.editable_grid = np.copy(self.original_grid)
+                            self.previous_grid = np.copy(self.original_grid)  # Lưu lại grid hiện tại
+                            self.update_grid_display()
+                            print(inv_transf)
+                            # Giải Sudoku và lưu vào solution_grid
+                            self.solution_grid = solveDFS(np.copy(self.original_grid))
+                            print(self.solution_grid)
+
+                        # Vẽ kết quả Sudoku lên khung hình
+                        if self.solution_grid is not None :
+                            grid_cell_height = maxHeight // 9
+                            grid_cell_width = maxWidth // 9
+
+                            for i in range(9):
+                                for j in range(9):
+                                    # Chỉ vẽ số lên các ô chưa có số trong lưới đề bài
+                                    if self.original_grid[i][j] == 0:  # Ô chưa có giá trị trong lưới gốc
+                                        num = self.solution_grid[i][j]
+                                        if num != 0:
+                                                                    # Tính tọa độ trung tâm của mỗi ô trong khung hình đã chuyển
+                                            x_warp = int(j * grid_cell_width + grid_cell_width / 2)
+                                            y_warp = int(i * grid_cell_height + grid_cell_height / 2)
+
+                                            # Chuyển đổi tọa độ từ không gian warp về frame gốc
+                                            point_warp = np.array([[[x_warp, y_warp]]], dtype=np.float32)  # Đảm bảo là (1, 1, 2)
+                                            
+                                            # Kiểm tra biến inv_transf có phải là ma trận đồng nhất không
+                                            if inv_transf is not None and inv_transf.shape[0] == 3 and inv_transf.shape[1] == 3:
+                                                point_frame = cv2.perspectiveTransform(point_warp, inv_transf)[0][0]
+
+                                                # Vẽ số vào ô tương ứng trên frame
+                                                cv2.putText(frame, str(num), (int(point_frame[0]), int(point_frame[1])),
+                                                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+                                            else:
+                                                print("inv_transf không hợp lệ.")
+
+                    except Exception as e:
+                        messagebox.showerror("Lỗi", f"Đã xảy ra lỗi: {e}")
             else:
-                processed_frame = frame
+                # Nếu không phát hiện Sudoku, không làm gì thêm
+                sudoku_detected = False
 
-            frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
+            # Chuyển đổi hình ảnh để hiển thị trong Tkinter
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             frame_rgb = cv2.resize(frame_rgb, (800, 600))
             img = Image.fromarray(frame_rgb)
             img_tk = ImageTk.PhotoImage(image=img)
+
+            # Cập nhật hình ảnh trong Label
             self.camera_label.imgtk = img_tk
             self.camera_label.configure(image=img_tk)
 
+            # Cập nhật giao diện Tkinter
             self.camera_window.update_idletasks()
             self.camera_window.update()
 
-    def process_sudoku_frame(self, frame):
-        sudoku_grid, largest_rect_coord = extrapolate_sudoku(frame, "models/model_sudoku_mnist.keras")
-        return sudoku_grid, frame, largest_rect_coord
+        # Giải phóng tài nguyên khi kết thúc
+        cap.release()
 
-    def solve_and_draw_solution(self, frame, sudoku_grid, largest_rect_coord):
-        algorithm = self.algorithm_var.get()
-        if algorithm == "GA":
-            self.solution_grid = solveGreedy(np.copy(sudoku_grid))
-        elif algorithm == "DFS":
-            self.solution_grid = solveDFS(np.copy(sudoku_grid))
-        elif algorithm == "BFS":
-            self.solution_grid = solveBFS(np.copy(sudoku_grid))
-        elif algorithm == "A*":
-            self.solution_grid = solveAStar(np.copy(sudoku_grid))
-        elif algorithm == "Greedy":
-            self.solution_grid = solveGreedy(np.copy(sudoku_grid))
-        else:
-            self.solution_grid = solveIDS(np.copy(sudoku_grid))
 
-        if self.solution_grid is not None:
-            height, width = frame.shape[:2]
-            cell_height = height // 9
-            cell_width = width // 9
 
-            # Draw the green rectangle around the Sudoku grid
-            if largest_rect_coord is not None and len(largest_rect_coord) == 4:
-                cv2.polylines(frame, [largest_rect_coord], True, (0, 255, 0), 3)
-
-            for row in range(9):
-                for col in range(9):
-                    if sudoku_grid[row][col] == 0:
-                        number = self.solution_grid[row][col]
-                        x = int(col * cell_width + cell_width // 2)
-                        y = int(row * cell_height + cell_height // 2)
-                        cv2.putText(frame, str(number), (x, y), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-
-            for i in range(10):
-                thickness = 3 if i % 3 == 0 else 1
-                cv2.line(frame, (i * cell_width, 0), (i * cell_width, height), (0, 255, 0), thickness)
-                cv2.line(frame, (0, i * cell_height), (width, i * cell_height), (0, 255, 0), thickness)
 
     def close_camera(self):
         self.camera_running = False
@@ -578,34 +630,7 @@ class SudokuApp(ttk.Toplevel):
         if hasattr(self, 'camera_window'):
             self.camera_window.destroy()
 
-    def process_sudoku_frame2(self, frame):
-        """
-        Xử lý khung hình từ camera để nhận diện Sudoku và vẽ số lên khung hình.
-        """
-        try:
-            # Nhận diện Sudoku từ khung hình
-            sudoku_grid = extrapolate_sudoku(frame, "models/model_sudoku_mnist.keras")
-
-            if sudoku_grid is not None:
-                # Vẽ số nhận diện được lên khung hình
-                for row in range(9):
-                    for col in range(9):
-                        number = sudoku_grid[row][col]
-                        if number != 0:
-                            x = int(col * frame.shape[1] / 9 + frame.shape[1] / 18)
-                            y = int(row * frame.shape[0] / 9 + frame.shape[0] / 14)
-                            cv2.putText(frame, str(number), (x, y), 
-                                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-
-                return sudoku_grid, frame
-
-            return None, frame
-
-        except Exception as e:
-            print(f"Lỗi xử lý khung hình: {e}")
-            return None, frame
-
-
+ 
     def check_solution(self):
         if np.all(self.original_grid == 0):
             messagebox.showwarning("Lỗi", "Vui lòng tạo một trò chơi mới trước khi giải.")
