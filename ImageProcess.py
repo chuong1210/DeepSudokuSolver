@@ -6,7 +6,7 @@ import copy
 
 from sudokuSolverDiversity import solveDFS,is_valid_sudoku
 
-def extrapolate_sudoku(image, model_name):
+def extract_sudoku_grid(image, model_name):
     '''Cho một hình ảnh Sudoku và mô hình mạng nơ-ron đã huấn luyện, trả về ma trận Sudoku được trích xuất từ hình ảnh'''
     # Import mô hình đã được huấn luyện
     model = load_model(model_name)
@@ -269,7 +269,7 @@ def displayImageSolution(image, solution, original_grid,largest_rect_coord):
 
 
 
-def extrapolate_sudoku_myself(image, model_path):
+def getGrid_largest_rect_coord(image, model_path):
     # Convert frame to grayscale if it's not already
         '''Cho một hình ảnh Sudoku và mô hình mạng nơ-ron đã huấn luyện, trả về ma trận Sudoku được trích xuất từ hình ảnh'''
         # Import mô hình đã được huấn luyện
@@ -475,7 +475,7 @@ def is_sudoku_present(frame):
                 area = cv2.contourArea(contour)
 
                 # Kiểm tra xem diện tích có trong phạm vi hợp lý cho lưới Sudoku không
-                if 10000 < area < 500000:  # Điều chỉnh các giá trị này tùy theo kích thước của lưới Sudoku trong video
+                if 10000 < area < 5000000:  # Điều chỉnh các giá trị này tùy theo kích thước của lưới Sudoku trong video
                     if area > largest_area:
                         largest_area = area
                         largest_contour = approx
@@ -496,7 +496,7 @@ def is_sudoku_present(frame):
 
 def display_sudoku_on_frame(frame, model_path):
 
-    sudoku_grid, largest_rect_coord = extrapolate_sudoku_myself(frame, model_path)
+    sudoku_grid, largest_rect_coord = getGrid_largest_rect_coord(frame, model_path)
     print(sudoku_grid)
     if(is_valid_sudoku(sudoku_grid)):
 
@@ -526,6 +526,30 @@ def display_sudoku_on_frame(frame, model_path):
                                 [0, maxHeight - 1],
                                 [maxWidth - 1, maxHeight - 1],
                                 [maxWidth - 1, 0]])
+
+
+
+        # transf = cv2.getPerspectiveTransform(input_pts, output_pts)
+        # warp = cv2.warpPerspective(frame, transf, (maxWidth, maxHeight))
+
+        # grid_cell_height = maxHeight // 9
+        # grid_cell_width = maxWidth // 9
+
+        # # Vẽ kết quả lên hình ảnh Sudoku
+        # for i in range(9):
+        #     for j in range(9):
+        #         x = int(j * grid_cell_width)  # Chắc chắn là số nguyên
+        #         y = int(i * grid_cell_height)  # Chắc chắn là số nguyên
+        #         num = solve_grid[i][j]
+
+        #         if num != 0:
+        #             cv2.putText(warp, str(num), (x + int(grid_cell_width // 4), y + int(grid_cell_height // 1.5)),
+        #                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv2.LINE_AA)
+
+        #         # Vẽ kết quả lên frame gốc
+        # cv2.imshow("Sudoku Solution", warp)
+        # return largest_rect_coord,frame,sudoku_grid
+
 
         # Tính ma trận biến đổi phối cảnh và ma trận nghịch đảo
         transf = cv2.getPerspectiveTransform(input_pts, output_pts)
@@ -561,7 +585,7 @@ def display_sudoku_on_frame(frame, model_path):
 def display_sudoku_on_frame1(frame, model_path):
 
 
-        sudoku_grid, largest_rect_coord = extrapolate_sudoku_myself(frame, model_path)
+        sudoku_grid, largest_rect_coord = getGrid_largest_rect_coord(frame, model_path)
         solve_grid = copy.deepcopy(sudoku_grid)
 
         solveDFS(solve_grid)

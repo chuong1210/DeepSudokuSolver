@@ -11,7 +11,7 @@ import time
 from tkinter import filedialog, messagebox
 
 from sudokuSolverDiversity import solveAStar, solveBFS, solveDFS,solveIDS,solveGreedy,is_valid_sudoku
-from ImageProcess import extrapolate_sudoku,displayImageSolution,resize_image,extrapolate_sudoku_myself,is_sudoku_present,display_sudoku_on_frame
+from ImageProcess import extract_sudoku_grid,displayImageSolution,resize_image,is_sudoku_present,display_sudoku_on_frame
 # from imageProcessing import extrapolate_sudoku,displayImageSolution,resize_image,is_sudoku_present,display_sudoku_on_frame
 
 import math
@@ -458,7 +458,7 @@ class SudokuApp(ttk.Toplevel):
 
         if file_path:
             # Giải Sudoku từ ảnh
-            sudoku_grid, largest_rect_coord, transform_matrix, warp_size = extrapolate_sudoku(image, "models/model_sudoku_mnist.keras")
+            sudoku_grid, largest_rect_coord, transf, (maxWidth, maxHeight) = extract_sudoku_grid(image, "models/model_sudoku.keras")
 
             self.original_grid = np.array(sudoku_grid)
             self.editable_grid = np.copy(self.original_grid)
@@ -468,18 +468,19 @@ class SudokuApp(ttk.Toplevel):
 
 
             # Xác nhận câu đố Sudoku
-            if messagebox.askyesno("Xác nhận", "Đây có phải là câu đố Sudoku chính xác không?"):
+            if messagebox.askyesno("Xác nhận", "Đây có phải là câu đố Sudoku chính xác không?") and is_valid_sudoku(self.original_grid):
+                self.new_game()
                 self.solve()
                 # Hiển thị ảnh với lời giải
+                if(self.solution_grid is not None):
 
+                    result_image = displayImageSolution(image, self.solution_grid, self.original_grid,largest_rect_coord)
 
-                result_image = displayImageSolution(image, self.solution_grid, self.original_grid,largest_rect_coord)
+                    result_image = resize_image(result_image)  # Resize the image if it's too large
 
-                result_image = resize_image(result_image)  # Resize the image if it's too large
-
-                cv2.imshow("Sudoku Solved", result_image)
-                cv2.waitKey(0)
-                cv2.destroyAllWindows()
+                    cv2.imshow("Sudoku Solved", result_image)
+                    cv2.waitKey(0)
+                    cv2.destroyAllWindows()
             else:
                 messagebox.showinfo("Thử lại", "Vui lòng tải lên một hình ảnh khác.")
 
@@ -548,7 +549,7 @@ class SudokuApp(ttk.Toplevel):
                 sudoku_detected = True
                 if sudoku_detected:
                     try:
-                        largest_rect_coord, frame_with_sudoku, sudoku_grid, inv_transf, maxWidth, maxHeight = display_sudoku_on_frame(frame, "models/model_sudoku_mnist.keras")
+                        largest_rect_coord, frame_with_sudoku, sudoku_grid, inv_transf, maxWidth, maxHeight = display_sudoku_on_frame(frame, "models/model_sudoku.keras")
                         sudoku_detected = True
                         frame = frame_with_sudoku
                         print(inv_transf)
@@ -566,7 +567,7 @@ class SudokuApp(ttk.Toplevel):
                             self.update_grid_display()
                             print(inv_transf)
                             # Giải Sudoku và lưu vào solution_grid
-                            self.solution_grid = solveDFS(np.copy(self.original_grid))
+                            self.solution_grid = solveAStar(np.copy(self.original_grid))
                             print(self.solution_grid)
 
                         # Vẽ kết quả Sudoku lên khung hình
