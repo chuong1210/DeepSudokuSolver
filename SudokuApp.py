@@ -11,7 +11,7 @@ import time
 from tkinter import filedialog, messagebox
 
 from sudokuSolverDiversity import solveAStar, solveBFS, solveDFS,solveIDS,solveGreedy,is_valid_sudoku
-from ImageProcess import extract_sudoku_grid,displayImageSolution,resize_image,is_sudoku_present,display_sudoku_on_frame
+from ImageProcess import extract_sudoku_grid,displayImageSolution,resize_image,is_sudoku_present,display_sudoku_on_frame,extrapolate_sudoku
 # from imageProcessing import extrapolate_sudoku,displayImageSolution,resize_image,is_sudoku_present,display_sudoku_on_frame
 
 import math
@@ -322,6 +322,11 @@ class SudokuApp(ttk.Toplevel):
             else:
                 print("Error: Puzzle for 16x16 grid is not valid.")
         # Đảm bảo câu đố được chuyển đổi thành danh sách các số nguyên  
+        self.new_game_action()
+
+
+
+    def new_game_action(self):
         self.solution_grid = None
         self.history = []
         self.hint_mode = False  # Thêm biến để kiểm tra chế độ gợi ý
@@ -344,11 +349,6 @@ class SudokuApp(ttk.Toplevel):
         self.update_timer()
         self.solution_displayed = False # Added line
         self.update_solve_button_text() # Added line
-
-
-
-
-
 
     def update_grid_display(self):
         for row in range(self.grid_size):
@@ -454,11 +454,14 @@ class SudokuApp(ttk.Toplevel):
     def upload_image(self):
         # Chọn tệp hình ảnh
         file_path = filedialog.askopenfilename(filetypes=[("Tệp hình ảnh", "*.jpg;*.png;*.gif")])
+        if not file_path:
+            messagebox.showinfo("Lỗi", "Vui lòng chọn một tệp hình ảnh.")
+            return
         image = cv2.imread(file_path)
 
         if file_path:
             # Giải Sudoku từ ảnh
-            sudoku_grid, largest_rect_coord, transf, (maxWidth, maxHeight) = extract_sudoku_grid(image, "models/model_sudoku.keras")
+            sudoku_grid, largest_rect_coord, transf, (maxWidth, maxHeight) = extract_sudoku_grid(image, "models/model_sudoku.hdf5")
 
             self.original_grid = np.array(sudoku_grid)
             self.editable_grid = np.copy(self.original_grid)
@@ -469,8 +472,17 @@ class SudokuApp(ttk.Toplevel):
 
             # Xác nhận câu đố Sudoku
             if messagebox.askyesno("Xác nhận", "Đây có phải là câu đố Sudoku chính xác không?") and is_valid_sudoku(self.original_grid):
-                self.new_game()
+                self.new_game_action()
+             
+
                 self.solve()
+                   
+                print(1)
+                print(2)
+
+                print(self.original_grid)
+                print(self.solution_grid)
+
                 # Hiển thị ảnh với lời giải
                 if(self.solution_grid is not None):
 
