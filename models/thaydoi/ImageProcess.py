@@ -494,58 +494,6 @@ def is_sudoku_present(frame):
 
 
 
-def get_largest_rect_coord(image):
-    # Convert frame to grayscale if it's not already
-        '''Cho một hình ảnh Sudoku và mô hình mạng nơ-ron đã huấn luyện, trả về ma trận Sudoku được trích xuất từ hình ảnh'''
-        # Import mô hình đã được huấn luyện
-
-        # Đọc hình ảnh Sudoku từ file
-    
-
-        if len(image.shape) == 3:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        else:
-            gray = image
-
-        # Làm mờ hình ảnh để giảm nhiễu và giúp nhận dạng số dễ hơn
-        blur = cv2.GaussianBlur(gray, (13, 13), 0)
-
-        # Áp dụng ngưỡng thích ứng để chuyển thành ảnh nhị phân
-        thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 7, 2)
-
-        # Làm xói mòn và giãn nở hình ảnh để tách các chữ số rõ ràng hơn
-        kernel = np.ones((3,3), np.uint8)
-        erosion = cv2.erode(thresh, kernel)
-        dilatation = cv2.dilate(erosion, kernel)
-
-        # Đảo ngược màu sắc của hình ảnh (chuyển đen thành trắng và ngược lại)
-        invert = cv2.bitwise_not(dilatation)
-
-    # Tìm đường viền lớn nhất có dạng hình vuông (tương ứng với khung Sudoku)
-        contours, hierarchy = cv2.findContours(invert, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        contours_sorted = sorted(contours, key=cv2.contourArea, reverse=True)
-
-        largest_rect_coord = []
-        for c in contours_sorted:
-            perimeter = cv2.arcLength(c, True)
-            approx = cv2.approxPolyDP(c, 0.01 * perimeter, True)
-            if len(approx) == 4:
-                largest_rect_coord = approx
-                cv2.drawContours(image, [approx], 0, (0, 255, 0), 3)
-                break
-
-        # Trả về ma trận Sudoku rỗng nếu không tìm thấy đường viền nào
-        if largest_rect_coord is None or len(largest_rect_coord) == 0:
-            empty_sudoku = np.zeros((9, 9), np.int8)
-            return empty_sudoku
-
-        largest_rect_coord = largest_rect_coord.reshape(4,2)
-
-
-  
-        return largest_rect_coord
-
-
 
 def display_sudoku_on_frame(frame, model_path):
 
@@ -611,22 +559,22 @@ def display_sudoku_on_frame(frame, model_path):
         grid_cell_height = maxHeight // 9
         grid_cell_width = maxWidth // 9
 
-        # # Vẽ kết quả lên frame gốc
-        # for i in range(9):
-        #     for j in range(9):
-        #         num = sudoku_grid[i][j]
-        #         if num != 0:
-        #             # Tính tọa độ trung tâm của mỗi ô trong warp
-        #             x_warp = int(j * grid_cell_width + grid_cell_width / 2)
-        #             y_warp = int(i * grid_cell_height + grid_cell_height / 2)
+        # Vẽ kết quả lên frame gốc
+        for i in range(9):
+            for j in range(9):
+                num = sudoku_grid[i][j]
+                if num != 0:
+                    # Tính tọa độ trung tâm của mỗi ô trong warp
+                    x_warp = int(j * grid_cell_width + grid_cell_width / 2)
+                    y_warp = int(i * grid_cell_height + grid_cell_height / 2)
 
-        #             # Chuyển đổi tọa độ từ warp về frame gốc
-        #             point_warp = np.array([[[x_warp, y_warp]]], dtype=np.float32)
-        #             point_frame = cv2.perspectiveTransform(point_warp, inv_transf)[0][0]
+                    # Chuyển đổi tọa độ từ warp về frame gốc
+                    point_warp = np.array([[[x_warp, y_warp]]], dtype=np.float32)
+                    point_frame = cv2.perspectiveTransform(point_warp, inv_transf)[0][0]
 
-        #             # Vẽ số lên frame gốc
-        #             cv2.putText(frame, str(num), (int(point_frame[0]), int(point_frame[1])),
-        #                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+                    # Vẽ số lên frame gốc
+                    cv2.putText(frame, str(num), (int(point_frame[0]), int(point_frame[1])),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
         return largest_rect_coord, frame, sudoku_grid,inv_transf, maxWidth, maxHeight
 

@@ -557,7 +557,6 @@ class SudokuApp(ttk.Toplevel):
                 sudoku_detected = True
                 if sudoku_detected:
                     try:
-                        
                         largest_rect_coord, frame_with_sudoku, sudoku_grid, inv_transf, maxWidth, maxHeight = display_sudoku_on_frame(frame, "models/model_sudoku.keras")
                         sudoku_detected = True
                         frame = frame_with_sudoku
@@ -632,6 +631,101 @@ class SudokuApp(ttk.Toplevel):
 
         # Giải phóng tài nguyên khi kết thúc
         cap.release()
+
+
+
+    # def update_camera_feed_myself(self, cap):
+    #     sudoku_detected = False  # Cờ để kiểm tra trạng thái Sudoku
+    #     largest_rect_coord = None  # Lưu trữ tọa độ của vùng Sudoku
+    #     self.previous_grid = None  # Lưu trữ lưới Sudoku trước đó để so sánh
+
+    #     while self.camera_running:
+    #         ret, frame = cap.read()
+    #         if not ret:
+    #             messagebox.showerror("Lỗi", "Không thể đọc khung hình từ camera.")
+    #             self.close_camera()
+    #             break
+
+    #         # Thoát vòng lặp khi nhấn phím 'q'
+    #         if cv2.waitKey(1) & 0xFF == ord('q'):
+    #             break
+
+    #         # Kiểm tra xem có Sudoku trong khung hình không
+    #         if is_sudoku_present(frame):
+    #             sudoku_detected = True
+    #             if sudoku_detected:
+    #                 try:
+    #                     largest_rect_coord, frame_with_sudoku, sudoku_grid, inv_transf, maxWidth, maxHeight = display_sudoku_on_frame(frame, "models/model_sudoku.keras")
+    #                     sudoku_detected = True
+    #                     frame = frame_with_sudoku
+    #                     print(inv_transf)
+
+    #                     # Tô màu và vẽ viền vùng Sudoku
+    #                     if largest_rect_coord is not None and len(largest_rect_coord) == 4:
+    #                         cv2.drawContours(frame, [largest_rect_coord], -1, (0, 255, 0), -1)  # Tô màu xanh lá
+    #                         cv2.drawContours(frame, [largest_rect_coord], -1, (0, 0, 255), 3)  # Viền đỏ
+
+    #                     # Kiểm tra và giải Sudoku chỉ khi lưới thay đổi
+    #                     if sudoku_grid is not None and (self.previous_grid is None or not np.array_equal(sudoku_grid, self.previous_grid)) and is_valid_sudoku(sudoku_grid)==True:
+    #                         self.original_grid = sudoku_grid
+    #                         self.editable_grid = np.copy(self.original_grid)
+    #                         self.previous_grid = np.copy(self.original_grid)  # Lưu lại grid hiện tại
+    #                         self.update_grid_display()
+    #                         print(inv_transf)
+    #                         # Giải Sudoku và lưu vào solution_grid
+    #                         self.solution_grid = solveAStar(np.copy(self.original_grid))
+    #                         print(self.solution_grid)
+
+    #                     # Vẽ kết quả Sudoku lên khung hình
+    #                     if self.solution_grid is not None :
+    #                         grid_cell_height = maxHeight // 9
+    #                         grid_cell_width = maxWidth // 9
+
+    #                         for i in range(9):
+    #                             for j in range(9):
+    #                                 # Chỉ vẽ số lên các ô chưa có số trong lưới đề bài
+    #                                 if self.original_grid[i][j] == 0:  # Ô chưa có giá trị trong lưới gốc
+    #                                     num = self.solution_grid[i][j]
+    #                                     if num != 0:
+    #                                                                 # Tính tọa độ trung tâm của mỗi ô trong khung hình đã chuyển
+    #                                         x_warp = int(j * grid_cell_width + grid_cell_width / 2)
+    #                                         y_warp = int(i * grid_cell_height + grid_cell_height / 2)
+
+    #                                         # Chuyển đổi tọa độ từ không gian warp về frame gốc
+    #                                         point_warp = np.array([[[x_warp, y_warp]]], dtype=np.float32)  # Đảm bảo là (1, 1, 2)
+                                            
+    #                                         # Kiểm tra biến inv_transf có phải là ma trận đồng nhất không
+    #                                         if inv_transf is not None and inv_transf.shape[0] == 3 and inv_transf.shape[1] == 3:
+    #                                             point_frame = cv2.perspectiveTransform(point_warp, inv_transf)[0][0]
+
+    #                                             # Vẽ số vào ô tương ứng trên frame
+    #                                             cv2.putText(frame, str(num), (int(point_frame[0]), int(point_frame[1])),
+    #                                                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+    #                                         else:
+    #                                             print("inv_transf không hợp lệ.")
+
+    #                 except Exception as e:
+    #                     messagebox.showerror("Lỗi", f"Đã xảy ra lỗi: {e}")
+    #         else:
+    #             # Nếu không phát hiện Sudoku, không làm gì thêm
+    #             sudoku_detected = False
+
+    #         # Chuyển đổi hình ảnh để hiển thị trong Tkinter
+    #         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    #         frame_rgb = cv2.resize(frame_rgb, (800, 600))
+    #         img = Image.fromarray(frame_rgb)
+    #         img_tk = ImageTk.PhotoImage(image=img)
+
+    #         # Cập nhật hình ảnh trong Label
+    #         self.camera_label.imgtk = img_tk
+    #         self.camera_label.configure(image=img_tk)
+
+    #         # Cập nhật giao diện Tkinter
+    #         self.camera_window.update_idletasks()
+    #         self.camera_window.update()
+
+    #     # Giải phóng tài nguyên khi kết thúc
+    #     cap.release()
 
 
 
