@@ -151,13 +151,12 @@ import sklearn
 import tensorflow
 import cv2
 
+import pickle
+
 
 def train_and_save_model():
-    '''Save a CNN model trained on a dataset composed of digits taken from a sudoku magazine'''
-    # trained with epochs=15, an accuracy of 0.9990 has been obtained
+    '''Lưu mô hình CNN được đào tạo trên một tập dữ liệu bao gồm các chữ số lấy từ tạp chí sudoku'''
 
-    import pickle
-    # open dictionary and import the dataset
     file = open("Repository/digitDataset.pkl", "rb")
     dataset = pickle.load(file)
     file.close()
@@ -208,8 +207,8 @@ def train_and_save_model():
 
     model.add(Dense(400, activation='relu'))
     model.add(Dense(10, activation='softmax'))
+# Sử dụng Adam (một phương pháp tối ưu hóa phổ biến) để điều chỉnh trọng số trong quá trình huấn luyện.
 
-    # compile the model using accuracy to measure model performance
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
     # train the model

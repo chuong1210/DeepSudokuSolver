@@ -4,25 +4,29 @@ from ttkbootstrap.constants import *
 import json
 import numpy as np
 import cv2 
-
+import csv
+from datetime import datetime
 from PIL import Image, ImageTk
 import random
 import time
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 
 from sudokuSolverDiversity import solveAStar, solveBFS, solveDFS,solveIDS,is_valid_sudoku
 from ImageProcess import extract_sudoku_grid,displayImageSolution,resize_image,is_sudoku_present,display_sudoku_on_frame
 
 import math
 import tkinter.simpledialog as simpledialog
+
 import threading  # Để chạy camera trong một luồng riêng
 from DiTruyen import solveGA   # Import the genetic solver
 from ttkbootstrap.tooltip import ToolTip
+from ttkbootstrap.dialogs import Messagebox
+
 import requests
 from io import BytesIO
 
 class SudokuApp(ttk.Toplevel):
-    def __init__(self, file):
+    def __init__(self, file,player_name):
         super().__init__()
         self.style.theme_use('darkly')  # Set the theme using ttkbootstrap
 
@@ -39,11 +43,19 @@ class SudokuApp(ttk.Toplevel):
         self.hint_mode = False  # Thêm biến để kiểm tra chế độ gợi ý
         self.hinted_cells = []  # Thêm danh sách các ô đã được gợi ý
 
+
         self.camera_running = False
+        self.elapsed_time = 0
+
         self.camera_index = 0
         self.max_retries = 3
         self.last_extract_time = time.time()
         self.extract_interval = 5  # Đặt kho
+
+       # ... (previous initialization code remains unchanged)
+        self.player_name = player_name
+        self.error_count = 0
+        self.csv_file = "player_data.csv"
         self.load_db(file)
         self.setup_ui()
     def load_db(self, file):
@@ -139,6 +151,13 @@ class SudokuApp(ttk.Toplevel):
             fill_color = "lightblue" if self.original_grid[row][col] != 0 else "white"
         self.canvas.itemconfig(cell, fill=fill_color)
     def toggle_hint_mode(self): # Hàm bật/tắt chế độ gợi ý
+        if np.all(self.original_grid == 0):
+            Messagebox.show_error(
+                "Không thể bật chế độ gợi ý khi bàn cờ trống. Vui lòng tạo một trò chơi mới trước.",
+                "Lỗi",
+                parent=self
+            )
+            return
         self.hint_mode = not self.hint_mode
         if self.hint_mode:
             self.canvas.config(cursor="question_arrow") # Thay đổi cursor
@@ -173,13 +192,17 @@ class SudokuApp(ttk.Toplevel):
         algorithm_frame = ttk.Frame(self.right_frame)
         algorithm_frame.pack(fill=X, expand=YES, pady=10)
 
+
         ttk.Label(algorithm_frame, text="Thuật toán:", font=("Roboto",14)).pack(side=LEFT) # Updated font size
 
         self.algorithm_var = tk.StringVar(value="A*")
         algorithm_combo = ttk.Combobox(algorithm_frame, textvariable=self.algorithm_var, 
-                                       values=["A*", "DFS", "BFS", "GA","Greedy","IDS"])
+                                       values=["A*", "DFS", "BFS", "GA","IDS"])
         algorithm_combo.pack(side=LEFT, padx=(0, 10))
 
+
+
+    # ... (rest of the class implementation remains unchanged)
         self.solve_button = ttk.Button(algorithm_frame, text="Giải", command=self.solve,cursor="hand2", width=30) # Updated line
         self.solve_button.pack(side=LEFT)
 
@@ -248,7 +271,7 @@ class SudokuApp(ttk.Toplevel):
 
 
 
-        hint_button = ttk.Button(undo_frame, text="Gợi ý", image=self.hint_icon, compound=LEFT, command=self.toggle_hint_mode, width=20, cursor="hand2")
+        hint_button = ttk.Button(undo_frame, text="Gợi ý", image=self.hint_icon,  command=self.toggle_hint_mode, width=20, cursor="hand2")
         hint_button.pack(side=LEFT, padx=5)
         ToolTip(hint_button, text="Bật/tắt chế độ gợi ý") # Thêm tooltip
       
@@ -348,6 +371,8 @@ class SudokuApp(ttk.Toplevel):
         self.progress_bar.stop()
         self.progress_bar['value'] = 0
         self.progress_bar.start()
+        self.progress_bar['maximum'] = 100
+        self.elapsed_time = 0
         
         self.update_timer()
         self.solution_displayed = False # Added line
@@ -360,7 +385,7 @@ class SudokuApp(ttk.Toplevel):
 
     def solve(self):
         if np.all(self.original_grid == 0):
-            messagebox.showwarning("Lỗi", "Vui lòng tạo một trò chơi mới trước khi giải.")
+            Messagebox.show_warning("Vui lòng tạo một trò chơi mới trước khi giải.", "Lỗi", parent=self)
             return
         if not self.solution_displayed:
             self.timer_running = False
@@ -453,13 +478,13 @@ class SudokuApp(ttk.Toplevel):
         # Chọn tệp hình ảnh
         file_path = filedialog.askopenfilename(filetypes=[("Tệp hình ảnh", "*.jpg;*.png;*.gif")])
         if not file_path:
-            messagebox.showinfo("Lỗi", "Vui lòng chọn một tệp hình ảnh.")
+            Messagebox.show_info("Vui lòng chọn một tệp hình ảnh.", "Lưu ý", parent=self)
             return
         image = cv2.imread(file_path)
 
         if file_path:
             # Giải Sudoku từ ảnh
-            sudoku_grid, largest_rect_coord, transf, (maxWidth, maxHeight) = extract_sudoku_grid(image, "models/model_sudoku.hdf5")
+            sudoku_grid, largest_rect_coord, transf, (maxWidth, maxHeight) = extract_sudoku_grid(image, "models/model_sudoku.keras")
 
             self.original_grid = np.array(sudoku_grid)
             self.editable_grid = np.copy(self.original_grid)
@@ -469,7 +494,7 @@ class SudokuApp(ttk.Toplevel):
 
 
             # Xác nhận câu đố Sudoku
-            if messagebox.askyesno("Xác nhận", "Đây có phải là câu đố Sudoku chính xác không?") and is_valid_sudoku(self.original_grid):
+            if Messagebox.yesno("Đây có phải là câu đố Sudoku chính xác không?", "Xác nhận", parent=self) and is_valid_sudoku(self.original_grid):
                 self.new_game_action()
              
 
@@ -492,7 +517,7 @@ class SudokuApp(ttk.Toplevel):
                     cv2.waitKey(0)
                     cv2.destroyAllWindows()
             else:
-                messagebox.showinfo("Thử lại", "Vui lòng tải lên một hình ảnh khác.")
+                Messagebox.show_info("Vui lòng tải lên một hình ảnh khác.", "Thử lại", parent=self)
 
     def show_camera_menu(self):
         camera_menu = tk.Menu(self, tearoff=0,cursor="hand2")
@@ -508,7 +533,7 @@ class SudokuApp(ttk.Toplevel):
 
     def start_camera_feed(self, cap):
         if not cap.isOpened():
-            messagebox.showerror("Lỗi", f"Không thể kết nối với camera:")
+            Messagebox.show_error(f"Không thể kết nối với camera:","Lỗi" , parent=self)
             return
 
         self.camera_window = tk.Toplevel(self)
@@ -520,9 +545,14 @@ class SudokuApp(ttk.Toplevel):
 
         self.camera_label = ttk.Label(self.camera_frame)
         self.camera_label.pack(fill=tk.BOTH, expand=tk.YES)
-
         self.camera_running = True
-        threading.Thread(target=self.update_camera_feed_myself, args=(cap,), daemon=True).start()
+        #threading.Thread(target=self.update_camera_feed_myself, args=(cap,), daemon=True).start()
+        self.camera_window.bind("<Key>", self.on_key_press)
+
+        self.update_camera_feed_myself(cap)
+
+
+  
 
 
     def open_webcam(self):
@@ -540,11 +570,14 @@ class SudokuApp(ttk.Toplevel):
         sudoku_detected = False  # Cờ để kiểm tra trạng thái Sudoku
         largest_rect_coord = None  # Lưu trữ tọa độ của vùng Sudoku
         self.previous_grid = None  # Lưu trữ lưới Sudoku trước đó để so sánh
+        self.is_present=False
+        sudoku_solve_grid=None
 
+  
         while self.camera_running:
             ret, frame = cap.read()
             if not ret:
-                messagebox.showerror("Lỗi", "Không thể đọc khung hình từ camera.")
+                Messagebox.show_error("Không thể đọc khung hình từ camera.", "Lỗi", parent=self)
                 self.close_camera()
                 break
 
@@ -553,12 +586,12 @@ class SudokuApp(ttk.Toplevel):
                 break
 
             # Kiểm tra xem có Sudoku trong khung hình không
-            if is_sudoku_present(frame) :
+            if is_sudoku_present(frame) == True :
                 sudoku_detected = True
                 if sudoku_detected:
                     try:
                         
-                        largest_rect_coord, frame_with_sudoku, sudoku_grid, inv_transf, maxWidth, maxHeight = display_sudoku_on_frame(frame, "models/model_sudoku.keras")
+                        largest_rect_coord, frame_with_sudoku, sudoku_grid, inv_transf, maxWidth, maxHeight = display_sudoku_on_frame(frame, "models/model_sudoku.keras",self.is_present)
                         sudoku_detected = True
                         frame = frame_with_sudoku
                         print(inv_transf)
@@ -575,9 +608,12 @@ class SudokuApp(ttk.Toplevel):
                                 self.editable_grid = np.copy(self.original_grid)
                                 self.previous_grid = np.copy(self.original_grid)  # Lưu lại grid hiện tại
                                 self.update_grid_display()
+                                self.is_present=True
 
                                 # Giải Sudoku và lưu vào solution_grid
-                                self.solution_grid = solveAStar(np.copy(self.original_grid))
+                                self.solution_grid = solveDFS(np.copy(self.original_grid))
+                                last_solution_time = time.time()  # Cập nhật thời gian hiển thị kết quả
+
                                 print(self.solution_grid)
                             else:
                                 print("Lưới chưa thay đổi, không giải lại Sudoku.")
@@ -611,7 +647,7 @@ class SudokuApp(ttk.Toplevel):
                                                 print("inv_transf không hợp lệ.")
 
                     except Exception as e:
-                        messagebox.showerror("Lỗi", f"Đã xảy ra lỗi: {e}")
+                        Messagebox.show_error(f"Đã xảy ra lỗi: {e}", "Lỗi", parent=self)
             else:
                 # Nếu không phát hiện Sudoku, không làm gì thêm
                 sudoku_detected = False
@@ -630,6 +666,8 @@ class SudokuApp(ttk.Toplevel):
             self.camera_window.update_idletasks()
             self.camera_window.update()
 
+            # cv2.waitKey(100)  # Thời gian trì hoãn 100ms (hoặc có thể thay đổi theo nhu cầu)
+
         # Giải phóng tài nguyên khi kết thúc
         cap.release()
 
@@ -646,8 +684,10 @@ class SudokuApp(ttk.Toplevel):
  
     def check_solution(self):
         if np.all(self.original_grid == 0):
-            messagebox.showwarning("Lỗi", "Vui lòng tạo một trò chơi mới trước khi giải.")
-            return
+            Messagebox.show_warning(
+               "Tạo 1 game mới trước khi check",
+                "Error", parent=self
+            )
         if  self.solution_check == False:
             self.solution_check=True
 
@@ -692,6 +732,8 @@ class SudokuApp(ttk.Toplevel):
                     else:
                         self.solution_grid = solveIDS(np.copy(self.original_grid),16)
             if self.solution_grid is not None:
+                is_correct = True
+
                 for row in range(self.grid_size):
                     for col in range(self.grid_size):
                         cell, _ = self.cells[row][col]
@@ -700,10 +742,23 @@ class SudokuApp(ttk.Toplevel):
                                 self.canvas.itemconfig(cell, fill="lightgreen")
                             elif self.editable_grid[row][col] != 0:
                                 self.canvas.itemconfig(cell, fill="lightcoral")
+                                is_correct = False
+                                self.error_count += 1
+
+
                             else:
                                 self.canvas.itemconfig(cell, fill="white")
+                                is_correct = False
+                
+                if is_correct:
+                    solving_time = time.time() - self.start_time
+                    self.save_player_data(solving_time)
+                    Messagebox.show_info(f"Người chơi {self.player_name} đã giải đúng Sudoku trong {solving_time:.2f} giây!","Chúc mừng! " , parent=self)
+                else:
+                    Messagebox.show_warning("Có một số ô chưa đúng. Hãy kiểm tra lại!", "Chưa chính xác", parent=self)
             else:
-                messagebox.showwarning("Lỗi", "Không tìm thấy đáp án hợp lệ.")
+                Messagebox.show_warning("Không tìm thấy đáp án hợp lệ.", "Error", parent=self)
+
 
 
                             
@@ -733,12 +788,15 @@ class SudokuApp(ttk.Toplevel):
 
     def update_timer(self):
         if self.timer_running:
+
+
             elapsed_time = time.time() - self.start_time
             minutes = int(elapsed_time // 60)
             seconds = int(elapsed_time % 60)
             self.timer_label.config(text=f"Thời gian: {minutes:02d}:{seconds:02d}")
-            self.progress_bar['value'] = (elapsed_time % 3600) / 36  # Reset every hour
-            self.after(1000, self.update_timer)
+            self.elapsed_time += 1
+            self.progress_bar['value'] = (self.elapsed_time % 3600) / 36 * 100  # Scale to 0-100 range
+            self.master.after(1000, self.update_timer) #update every second    
     def refresh_checkSol(self):
         self.solution_displayed=  False
         self.solution_check=  False
@@ -772,10 +830,32 @@ class SudokuApp(ttk.Toplevel):
         else:
             self.solve_button.config(text="Giải")
 
+    def save_player_data(self, solving_time):
+        with open(self.csv_file, 'a', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow([
+                self.player_name,
+                self.difficulty_var.get(),
+                solving_time,
+                self.error_count,
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ])
 
-def run_app():
-    app = SudokuApp("Crossover.json")
+    def on_key_press(self, event):
+        if event.char == 'q':
+            self.previous_grid = None  # Reset previous_grid về None
+            self.camera_running = True  # Dừng vòng lặp camera
+            self.is_present=False
+
+            print("Reset previous_grid và dừng vòng lặp.")
+
+
+def run_app(player_name):
+    print(player_name)
+    app = SudokuApp("Crossover.json", player_name)
     app.mainloop()
 if __name__ == "__main__":
-    app = SudokuApp("Crossover.json")
+    # This block won't be used when called from SudokuHome
+    player_name = "Test Player"
+    app = SudokuApp("Crossover.json", player_name)
     app.mainloop()

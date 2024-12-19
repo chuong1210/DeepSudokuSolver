@@ -7,15 +7,17 @@ import copy
 from sudokuSolverDiversity import solveDFS,is_valid_sudoku
 import numpy as np
 import cv2
-
+import matplotlib.pyplot as plt
 
 def extract_sudoku_grid(image, model_name):
     '''Cho một hình ảnh Sudoku và mô hình mạng nơ-ron đã huấn luyện, trả về ma trận Sudoku được trích xuất từ hình ảnh'''
     # Import mô hình đã được huấn luyện
     model = load_model(model_name)
 
+
     # Đọc hình ảnh Sudoku từ file
- 
+    cv2.imshow("Original Image", image)
+    cv2.waitKey(0)
     # Thay đổi kích thước hình ảnh để phù hợp hơn
     img_height = image.shape[0]
     img_width = image.shape[1]
@@ -31,19 +33,35 @@ def extract_sudoku_grid(image, model_name):
     else:
         gray = image
 
+
+    cv2.imshow("Grayscale Image", gray)
+    cv2.waitKey(0)
+
+
     # Làm mờ hình ảnh để giảm nhiễu và giúp nhận dạng số dễ hơn
     blur = cv2.GaussianBlur(gray, (13, 13), 0)
 
+    cv2.imshow("Blurred Image", blur)
+    cv2.waitKey(0)
     # Áp dụng ngưỡng thích ứng để chuyển thành ảnh nhị phân
     thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 7, 2)
+
+    cv2.imshow("Threshold Image", thresh)
+    cv2.waitKey(0)
+
 
     # Làm xói mòn và giãn nở hình ảnh để tách các chữ số rõ ràng hơn
     kernel = np.ones((3,3), np.uint8)
     erosion = cv2.erode(thresh, kernel)
     dilatation = cv2.dilate(erosion, kernel)
 
+    cv2.imshow("Dilated Image", dilatation)
+    cv2.waitKey(0)
     # Đảo ngược màu sắc của hình ảnh (chuyển đen thành trắng và ngược lại)
     invert = cv2.bitwise_not(dilatation)
+    
+    cv2.imshow("Inverted Image", invert)
+    cv2.waitKey(0)
 
  # Tìm đường viền lớn nhất có dạng hình vuông (tương ứng với khung Sudoku)
     contours, hierarchy = cv2.findContours(invert, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -55,15 +73,18 @@ def extract_sudoku_grid(image, model_name):
         approx = cv2.approxPolyDP(c, 0.01 * perimeter, True)
         if len(approx) == 4:
             largest_rect_coord = approx
-            #cv2.drawContours(image, [approx], 0, (0, 255, 0), 3)
+            cv2.drawContours(image, [approx], 0, (0, 255, 0), 3)
             break
 
+    cv2.imshow("Contour Detection", cv2.drawContours(image, [approx], 0, (0, 255, 0), 3))
+    cv2.waitKey(0)
     # Trả về ma trận Sudoku rỗng nếu không tìm thấy đường viền nào
     if largest_rect_coord is None or len(largest_rect_coord) == 0:
         empty_sudoku = np.zeros((9, 9), np.int8)
         return empty_sudoku
 
     largest_rect_coord = largest_rect_coord.reshape(4,2)
+
 
 
     # Sắp xếp lại các tọa độ của đường viền
@@ -75,7 +96,9 @@ def extract_sudoku_grid(image, model_name):
     pt_B = largest_rect_coord[np.argmax(diff_coord)] # Điểm trên cùng bên phải
     pt_C = largest_rect_coord[np.argmax(sum_coord)]  # Điểm dưới cùng bên phải
     pt_D = largest_rect_coord[np.argmin(diff_coord)] # Điểm dưới cùng bên trái
-
+    delta_x = pt_B[0] - pt_A[0]
+    delta_y = pt_B[1] - pt_A[1]
+    angle = np.degrees(np.arctan2(delta_y, delta_x))
     # Tính toán chiều dài của các cạnh lớn nhất
     width_AD = np.sqrt(((pt_A[0] - pt_D[0]) ** 2) + ((pt_A[1] - pt_D[1]) ** 2))
     width_BC = np.sqrt(((pt_B[0] - pt_C[0]) ** 2) + ((pt_B[1] - pt_C[1]) ** 2))
@@ -98,12 +121,16 @@ def extract_sudoku_grid(image, model_name):
     warp = cv2.warpPerspective(invert, transf, (maxWidth, maxHeight), flags=cv2.INTER_LINEAR)
     grid = cv2.resize(warp, (252, 252))
 
+    cv2.imshow("Warped Sudoku Grid", warp)
+    cv2.waitKey(0)
+
     # Cắt hình ảnh thành các ô vuông (mỗi ô 28x28 pixel)
     cell = np.zeros([9, 9, 28, 28])
 
     for i in range(9):
         for j in range(9):
             cell[i][j] = grid[0+28*i:28+28*i, 0+28*j:28+28*j]
+ 
 
     # Tạo ma trận Sudoku để lưu các số nhận dạng được
     sudoku_grid = np.zeros((9, 9), np.int8)
@@ -114,9 +141,11 @@ def extract_sudoku_grid(image, model_name):
 
             # Chuyển hình ảnh sang dạng nhị phân để tìm đường viền số
             im = cv2.convertScaleAbs(im)
+        
 
             # Tìm các thành phần kết nối trong ô
             num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(im)
+       
 
             digit_contour = []
             for k in range(0, labels.max() + 1):
@@ -132,6 +161,8 @@ def extract_sudoku_grid(image, model_name):
                             else:
                                 digit_contour = c
                                 break
+       
+
             # check if there is a digit
             # Nếu không có đường viền số nào, gán ô là 0
             if len(digit_contour) == 0:
@@ -153,6 +184,7 @@ def extract_sudoku_grid(image, model_name):
             # Cắt riêng phần chứa số
             digit_image = clean_im[y:y + h, x:x + w].copy()
 
+             
             # before predicting the digit, check if there are at least 5 white pixels in the digit image, otherwise is considered noise
             # Kiểm tra nếu số lượng pixel trắng quá ít thì coi là nhiễu
 
@@ -174,14 +206,15 @@ def extract_sudoku_grid(image, model_name):
             mean_col = int((28 - digit_image.shape[1]) / 2)
             mnist_image[mean_row:mean_row + digit_image.shape[0], mean_col:mean_col + digit_image.shape[1]] = digit_image
 
+      
             #  Định hình lại ảnh để phù hợp với mô hình (1, 28, 28, 1)
             mnist_image = np.expand_dims(mnist_image, axis=0)
             mnist_image = np.expand_dims(mnist_image, axis=3)
 
-            # predict the digit using the model
-            digit_prediction = model.predict(mnist_image)
+            # dự đoan số dùng model
+            digit_prediction = model.predict(mnist_image) # mảng sác xuất
             cell_value = np.argmax(digit_prediction, axis=1)
-
+          
             # gán số dự đoán vào ô
             sudoku_grid[i][j] = cell_value
 
@@ -265,19 +298,69 @@ def displayImageSolution(image, solution, original_grid, largest_rect_coord):
 
     return image
 
+def is_sudoku_present(frame):
+    '''Kiểm tra xem frame có chứa lưới Sudoku hay không.'''
+    # Chuyển ảnh về grayscale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 7, 2)
+
+    # Tìm đường viền trong ảnh đã xử lý
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    largest_area = 0
+    largest_contour = None
+
+    for contour in contours:
+        perimeter = cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, 0.02 * perimeter, True)
+
+        # Nếu tìm thấy đường viền có 4 cạnh (hình chữ nhật hoặc hình vuông)
+        if len(approx) == 4:
+            # Sắp xếp lại các điểm để xác định chiều dài và chiều rộng của hình chữ nhật
+            approx = approx.reshape(4, 2)
+            rect_width = np.linalg.norm(approx[0] - approx[1])
+            rect_height = np.linalg.norm(approx[1] - approx[2])
+
+            # Kiểm tra tỷ lệ giữa chiều rộng và chiều cao (hình vuông hoặc hình chữ nhật gần vuông)
+            aspect_ratio = max(rect_width, rect_height) / min(rect_width, rect_height)
+
+
+            # Lưới Sudoku thường có tỷ lệ gần 1 (gần vuông)
+            if 0.9 < aspect_ratio < 1.1:
+                # Kiểm tra diện tích của hình chữ nhật
+                area = cv2.contourArea(contour)
+
+                # Kiểm tra xem diện tích có trong phạm vi hợp lý cho lưới Sudoku không
+                if 1000 < area < 5000000:  # Điều chỉnh các giá trị này tùy theo kích thước của lưới Sudoku trong video
+                    if area > largest_area:
+                        largest_area = area
+                        largest_contour = approx
+
+        # Nếu tìm thấy hình vuông lớn nhất, tô màu đỏ vào vùng đó
+                    if largest_contour is not None:
+             
+
+
+                    
+
+                        return True  # Đã phát hiện lưới Sudoku
+   
+    return False  # Không phát hiện lưới Sudoku
 
 
 
 
 
-def getGrid_largest_rect_coord(image, model_path):
+
+
+
+def getGrid_largest_rect_coord(image, model_path,is_present):
     # Convert frame to grayscale if it's not already
         '''Cho một hình ảnh Sudoku và mô hình mạng nơ-ron đã huấn luyện, trả về ma trận Sudoku được trích xuất từ hình ảnh'''
         # Import mô hình đã được huấn luyện
         model = load_model(model_path)
 
         # Đọc hình ảnh Sudoku từ file
-    
 
         if len(image.shape) == 3:
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -431,127 +514,22 @@ def getGrid_largest_rect_coord(image, model_path):
                 mnist_image = np.expand_dims(mnist_image, axis=0)
                 mnist_image = np.expand_dims(mnist_image, axis=3)
 
-                # predict the digit using the model
-                digit_prediction = model.predict(mnist_image)
-                cell_value = np.argmax(digit_prediction, axis=1)
+                if(is_present== False):
 
-                # gán số dự đoán vào ô
-                sudoku_grid[i][j] = cell_value
+                    # predict the digit using the model
+                    digit_prediction = model.predict(mnist_image)
+                    cell_value = np.argmax(digit_prediction, axis=1)
+
+                    # gán số dự đoán vào ô
+                    sudoku_grid[i][j] = cell_value
 
 
         return sudoku_grid, largest_rect_coord
 
+def display_sudoku_on_frame(frame, model_path,is_present):
 
-
-def is_sudoku_present(frame):
-    '''Kiểm tra xem frame có chứa lưới Sudoku hay không.'''
-    # Chuyển ảnh về grayscale
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 7, 2)
-
-    # Tìm đường viền trong ảnh đã xử lý
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    largest_area = 0
-    largest_contour = None
-
-    for contour in contours:
-        perimeter = cv2.arcLength(contour, True)
-        approx = cv2.approxPolyDP(contour, 0.02 * perimeter, True)
-
-        # Nếu tìm thấy đường viền có 4 cạnh (hình chữ nhật hoặc hình vuông)
-        if len(approx) == 4:
-            # Sắp xếp lại các điểm để xác định chiều dài và chiều rộng của hình chữ nhật
-            approx = approx.reshape(4, 2)
-            rect_width = np.linalg.norm(approx[0] - approx[1])
-            rect_height = np.linalg.norm(approx[1] - approx[2])
-
-            # Kiểm tra tỷ lệ giữa chiều rộng và chiều cao (hình vuông hoặc hình chữ nhật gần vuông)
-            aspect_ratio = max(rect_width, rect_height) / min(rect_width, rect_height)
-
-
-            # Lưới Sudoku thường có tỷ lệ gần 1 (gần vuông)
-            if 0.9 < aspect_ratio < 1.1:
-                # Kiểm tra diện tích của hình chữ nhật
-                area = cv2.contourArea(contour)
-
-                # Kiểm tra xem diện tích có trong phạm vi hợp lý cho lưới Sudoku không
-                if 1000 < area < 5000000:  # Điều chỉnh các giá trị này tùy theo kích thước của lưới Sudoku trong video
-                    if area > largest_area:
-                        largest_area = area
-                        largest_contour = approx
-
-        # Nếu tìm thấy hình vuông lớn nhất, tô màu đỏ vào vùng đó
-                    if largest_contour is not None:
-             
-
-
-                    
-
-                        return True  # Đã phát hiện lưới Sudoku
-   
-    return False  # Không phát hiện lưới Sudoku
-
-
-
-def get_largest_rect_coord(image):
-    # Convert frame to grayscale if it's not already
-        '''Cho một hình ảnh Sudoku và mô hình mạng nơ-ron đã huấn luyện, trả về ma trận Sudoku được trích xuất từ hình ảnh'''
-        # Import mô hình đã được huấn luyện
-
-        # Đọc hình ảnh Sudoku từ file
-    
-
-        if len(image.shape) == 3:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        else:
-            gray = image
-
-        # Làm mờ hình ảnh để giảm nhiễu và giúp nhận dạng số dễ hơn
-        blur = cv2.GaussianBlur(gray, (13, 13), 0)
-
-        # Áp dụng ngưỡng thích ứng để chuyển thành ảnh nhị phân
-        thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 7, 2)
-
-        # Làm xói mòn và giãn nở hình ảnh để tách các chữ số rõ ràng hơn
-        kernel = np.ones((3,3), np.uint8)
-        erosion = cv2.erode(thresh, kernel)
-        dilatation = cv2.dilate(erosion, kernel)
-
-        # Đảo ngược màu sắc của hình ảnh (chuyển đen thành trắng và ngược lại)
-        invert = cv2.bitwise_not(dilatation)
-
-    # Tìm đường viền lớn nhất có dạng hình vuông (tương ứng với khung Sudoku)
-        contours, hierarchy = cv2.findContours(invert, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        contours_sorted = sorted(contours, key=cv2.contourArea, reverse=True)
-
-        largest_rect_coord = []
-        for c in contours_sorted:
-            perimeter = cv2.arcLength(c, True)
-            approx = cv2.approxPolyDP(c, 0.01 * perimeter, True)
-            if len(approx) == 4:
-                largest_rect_coord = approx
-                cv2.drawContours(image, [approx], 0, (0, 255, 0), 3)
-                break
-
-        # Trả về ma trận Sudoku rỗng nếu không tìm thấy đường viền nào
-        if largest_rect_coord is None or len(largest_rect_coord) == 0:
-            empty_sudoku = np.zeros((9, 9), np.int8)
-            return empty_sudoku
-
-        largest_rect_coord = largest_rect_coord.reshape(4,2)
-
-
-  
-        return largest_rect_coord
-
-
-
-def display_sudoku_on_frame(frame, model_path):
-
-    sudoku_grid, largest_rect_coord = getGrid_largest_rect_coord(frame, model_path)
-    print(sudoku_grid)
-    if(is_valid_sudoku(sudoku_grid)):
+        sudoku_grid, largest_rect_coord = getGrid_largest_rect_coord(frame, model_path,is_present)
+        print(sudoku_grid)
 
 
 
@@ -630,6 +608,4 @@ def display_sudoku_on_frame(frame, model_path):
 
         return largest_rect_coord, frame, sudoku_grid,inv_transf, maxWidth, maxHeight
 
-
-    return None, frame, None, None, 0, 0
 
